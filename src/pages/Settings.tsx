@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,18 +10,28 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
 import { useSettings } from "@/hooks/useSettings";
+import SupabaseInfoBox from "@/components/SupabaseInfoBox";
+import { type Database } from "@/integrations/supabase/types";
+
+type Settings = Database["public"]["Tables"]["settings"]["Row"];
 
 const Settings = () => {
   const { toast } = useToast();
   const { settings, isLoading, updateSettings } = useSettings();
   
-  const [storeSettings, setStoreSettings] = useState({
-    store_name: settings?.store_name ?? "",
-    store_address: settings?.store_address ?? "",
-    store_phone: settings?.store_phone ?? "",
-    receipt_footer: settings?.receipt_footer ?? "",
+  const [storeSettings, setStoreSettings] = useState<{
+    store_name: string;
+    store_address: string;
+    store_phone: string;
+    receipt_footer: string;
+  }>({
+    store_name: "",
+    store_address: "",
+    store_phone: "",
+    receipt_footer: "",
   });
   
+  // Additional settings that will be stored in local storage for now
   const [posSettings, setPosSettings] = useState({
     enableDiscount: true,
     enableTax: true,
@@ -36,6 +47,18 @@ const Settings = () => {
     defaultUnit: "pcs",
     enableExpiration: true,
   });
+  
+  // Update form state when settings are loaded
+  useEffect(() => {
+    if (settings) {
+      setStoreSettings({
+        store_name: settings.store_name || "",
+        store_address: settings.store_address || "",
+        store_phone: settings.store_phone || "",
+        receipt_footer: settings.receipt_footer || "",
+      });
+    }
+  }, [settings]);
   
   const handleStoreSettingChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -70,23 +93,30 @@ const Settings = () => {
     try {
       if (settingType === "store") {
         await updateSettings(storeSettings);
+        
+        toast({
+          title: "Pengaturan Disimpan",
+          description: "Pengaturan toko berhasil diperbarui.",
+        });
       }
       else if (settingType === "pos") {
-        await updateSettings(posSettings);
-      } else if (settingType === "inventory") {
-        await updateSettings(inventorySettings);
+        // Save POS settings to localStorage
+        localStorage.setItem('posSettings', JSON.stringify(posSettings));
+        
+        toast({
+          title: "Pengaturan Disimpan",
+          description: "Pengaturan POS berhasil diperbarui.",
+        });
+      } 
+      else if (settingType === "inventory") {
+        // Save inventory settings to localStorage
+        localStorage.setItem('inventorySettings', JSON.stringify(inventorySettings));
+        
+        toast({
+          title: "Pengaturan Disimpan",
+          description: "Pengaturan inventaris berhasil diperbarui.",
+        });
       }
-      
-      toast({
-        title: "Pengaturan Disimpan",
-        description: `Pengaturan ${
-          settingType === "store" 
-            ? "toko" 
-            : settingType === "pos" 
-            ? "POS" 
-            : "inventaris"
-        } berhasil diperbarui.`,
-      });
     } catch (error) {
       toast({
         title: "Gagal Menyimpan Pengaturan",
@@ -96,11 +126,36 @@ const Settings = () => {
     }
   };
 
+  // Load local settings on component mount
+  useEffect(() => {
+    const savedPosSettings = localStorage.getItem('posSettings');
+    const savedInventorySettings = localStorage.getItem('inventorySettings');
+    
+    if (savedPosSettings) {
+      setPosSettings(JSON.parse(savedPosSettings));
+    }
+    
+    if (savedInventorySettings) {
+      setInventorySettings(JSON.parse(savedInventorySettings));
+    }
+  }, []);
+
   if (isLoading) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center h-full">
           <p>Memuat pengaturan...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!settings) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <h1 className="text-2xl font-semibold">Pengaturan Sistem</h1>
+          <SupabaseInfoBox />
         </div>
       </DashboardLayout>
     );
@@ -132,76 +187,44 @@ const Settings = () => {
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <div className="space-y-2">
-                      <Label htmlFor="storeName">Nama Toko</Label>
+                      <Label htmlFor="store_name">Nama Toko</Label>
                       <Input
-                        id="storeName"
-                        name="name"
+                        id="store_name"
+                        name="store_name"
                         value={storeSettings.store_name}
                         onChange={handleStoreSettingChange}
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="taxId">NPWP</Label>
+                      <Label htmlFor="store_phone">Nomor Telepon</Label>
                       <Input
-                        id="taxId"
-                        name="taxId"
-                        value={storeSettings.taxId}
+                        id="store_phone"
+                        name="store_phone"
+                        value={storeSettings.store_phone}
                         onChange={handleStoreSettingChange}
                       />
                     </div>
                   </div>
                   
                   <div className="space-y-2">
-                    <Label htmlFor="address">Alamat</Label>
+                    <Label htmlFor="store_address">Alamat</Label>
                     <Textarea
-                      id="address"
-                      name="address"
+                      id="store_address"
+                      name="store_address"
                       value={storeSettings.store_address}
                       onChange={handleStoreSettingChange}
                       rows={2}
                     />
-                  </div>
-                  
-                  <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">Nomor Telepon</Label>
-                      <Input
-                        id="phone"
-                        name="phone"
-                        value={storeSettings.store_phone}
-                        onChange={handleStoreSettingChange}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="email">Email</Label>
-                      <Input
-                        id="email"
-                        name="email"
-                        type="email"
-                        value={storeSettings.email}
-                        onChange={handleStoreSettingChange}
-                      />
-                    </div>
                   </div>
                 </div>
                 
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium">Pengaturan Struk</h3>
                   <div className="space-y-2">
-                    <Label htmlFor="receiptHeader">Header Struk</Label>
-                    <Input
-                      id="receiptHeader"
-                      name="receiptHeader"
-                      value={storeSettings.receiptHeader}
-                      onChange={handleStoreSettingChange}
-                    />
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="receiptFooter">Footer Struk</Label>
+                    <Label htmlFor="receipt_footer">Footer Struk</Label>
                     <Textarea
-                      id="receiptFooter"
-                      name="receiptFooter"
+                      id="receipt_footer"
+                      name="receipt_footer"
                       value={storeSettings.receipt_footer}
                       onChange={handleStoreSettingChange}
                       rows={2}

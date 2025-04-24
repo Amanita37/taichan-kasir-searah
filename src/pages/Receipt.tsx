@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,71 +16,25 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
+  DialogDescription,
+  DialogClose,
 } from "@/components/ui/dialog";
 import { Card, CardContent } from "@/components/ui/card";
-import { Search, Printer, Eye } from "lucide-react";
+import { 
+  Search, 
+  Printer, 
+  Eye, 
+  Trash2,
+  Receipt as ReceiptIcon 
+} from "lucide-react";
+import { useToast } from "@/components/ui/use-toast";
+import { useTransactions } from "@/hooks/useTransactions";
+import { useSettings } from "@/hooks/useSettings";
+import SupabaseInfoBox from "@/components/SupabaseInfoBox";
 
-// Demo data - in a real app, this would come from Supabase
-const DEMO_TRANSACTIONS = [
-  {
-    id: "TRX-001",
-    date: "2025-04-24T09:30:00",
-    customer: "Pelanggan Umum",
-    total: 150000,
-    items: 5,
-    paymentMethod: "Cash",
-    cashier: "John Doe",
-    items_detail: [
-      { name: "Beras 5kg", price: 65000, quantity: 1 },
-      { name: "Minyak Goreng 2L", price: 38000, quantity: 1 },
-      { name: "Telur Ayam 1kg", price: 27000, quantity: 1 },
-      { name: "Gula Pasir 1kg", price: 15000, quantity: 1 },
-      { name: "Tepung Terigu 1kg", price: 5000, quantity: 1 },
-    ],
-  },
-  {
-    id: "TRX-002",
-    date: "2025-04-24T10:15:00",
-    customer: "Lisa Amanda",
-    total: 87500,
-    items: 3,
-    paymentMethod: "Cash",
-    cashier: "Jane Smith",
-    items_detail: [
-      { name: "Ayam Potong 1kg", price: 32000, quantity: 1 },
-      { name: "Coca Cola 1.5L", price: 16000, quantity: 2 },
-      { name: "Roti Tawar", price: 15000, quantity: 1 },
-      { name: "Mie Instan", price: 3500, quantity: 2 },
-    ],
-  },
-  {
-    id: "TRX-003",
-    date: "2025-04-24T11:45:00",
-    customer: "Budi Santoso",
-    total: 125000,
-    items: 4,
-    paymentMethod: "Cash",
-    cashier: "John Doe",
-    items_detail: [
-      { name: "Beras 5kg", price: 65000, quantity: 1 },
-      { name: "Gula Pasir 1kg", price: 15000, quantity: 2 },
-      { name: "Minyak Goreng 2L", price: 38000, quantity: 1 },
-    ],
-  },
-];
-
-// Format date to locale string
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleString("id-ID", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
-
-const formatCurrency = (amount: number): string => {
+const formatCurrency = (amount: number | null | undefined): string => {
+  if (amount == null) return "Rp0";
   return new Intl.NumberFormat("id-ID", {
     style: "currency",
     currency: "IDR",
@@ -88,41 +42,228 @@ const formatCurrency = (amount: number): string => {
   }).format(amount);
 };
 
+const formatDate = (dateString: string): string => {
+  const options: Intl.DateTimeFormatOptions = {
+    year: 'numeric', 
+    month: 'long', 
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  };
+  return new Date(dateString).toLocaleDateString('id-ID', options);
+};
+
 const Receipt = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedTransaction, setSelectedTransaction] = useState<typeof DEMO_TRANSACTIONS[0] | null>(null);
-  const [isReceiptDialogOpen, setIsReceiptDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [currentTransaction, setCurrentTransaction] = useState<any | null>(null);
+  const [transactionItems, setTransactionItems] = useState<any[]>([]);
+  const [password, setPassword] = useState("");
+  const [isLoadingItems, setIsLoadingItems] = useState(false);
+  const receiptRef = useRef<HTMLDivElement>(null);
+  const { toast } = useToast();
+  
+  const { transactions, isLoadingTransactions, deleteTransaction, getTransactionItems } = useTransactions();
+  const { settings } = useSettings();
 
-  const filteredTransactions = DEMO_TRANSACTIONS.filter(
+  const filteredTransactions = transactions ? transactions.filter(
     (transaction) =>
-      transaction.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      transaction.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      formatDate(transaction.date).toLowerCase().includes(searchQuery.toLowerCase())
-  );
+      transaction.transaction_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (transaction.customer_name && transaction.customer_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      transaction.cashier_name.toLowerCase().includes(searchQuery.toLowerCase())
+  ) : [];
 
-  const handlePrintReceipt = () => {
-    if (!selectedTransaction) return;
+  const viewTransaction = async (transaction: any) => {
+    setCurrentTransaction(transaction);
+    setIsLoadingItems(true);
     
-    // In a real application, this would trigger the actual printing functionality
-    // For now, we'll just log to console
-    console.log("Printing receipt for:", selectedTransaction.id);
-    
-    // Normally, you would use window.print() or a dedicated receipt printing library
-    window.print();
+    try {
+      const items = await getTransactionItems(transaction.id);
+      setTransactionItems(items);
+      setIsViewDialogOpen(true);
+    } catch (error) {
+      console.error("Error fetching transaction items:", error);
+      toast({
+        title: "Gagal",
+        description: "Tidak dapat mengambil detail transaksi",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoadingItems(false);
+    }
   };
+
+  const confirmDelete = (transaction: any) => {
+    setCurrentTransaction(transaction);
+    setIsDeleteDialogOpen(true);
+  };
+  
+  const handlePasswordCheck = () => {
+    // Hard-coded owner password for demo
+    const OWNER_PASSWORD = "admin123";
+    
+    if (password === OWNER_PASSWORD) {
+      setIsPasswordDialogOpen(false);
+      setIsDeleteDialogOpen(false);
+      
+      deleteTransaction(currentTransaction.id, {
+        onSuccess: () => {
+          toast({
+            title: "Transaksi Dihapus",
+            description: `Transaksi ${currentTransaction.transaction_number} telah dihapus.`,
+          });
+        },
+        onError: (error) => {
+          console.error("Delete error:", error);
+          toast({
+            title: "Gagal Menghapus",
+            description: "Terjadi kesalahan saat menghapus transaksi.",
+            variant: "destructive",
+          });
+        }
+      });
+      
+      setPassword("");
+    } else {
+      toast({
+        title: "Password Salah",
+        description: "Password yang Anda masukkan salah.",
+        variant: "destructive",
+      });
+    }
+  };
+  
+  const handleDeleteRequest = () => {
+    setIsPasswordDialogOpen(true);
+  };
+
+  const handlePrint = () => {
+    if (!receiptRef.current) return;
+    
+    const printWindow = window.open('', '', 'height=600,width=800');
+    if (!printWindow) {
+      toast({
+        title: "Gagal Mencetak",
+        description: "Popup blocker mungkin mencegah pencetakan. Mohon izinkan pop-up untuk situs ini.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Set receipt width based on settings
+    const receiptWidth = settings?.receipt_width || 48;
+    
+    printWindow.document.write(`
+      <html>
+        <head>
+          <title>Struk Pembayaran</title>
+          <style>
+            body {
+              font-family: 'Courier New', monospace;
+              font-size: 12px;
+              padding: 5mm;
+              margin: 0;
+              width: ${receiptWidth}mm;
+            }
+            .receipt {
+              width: 100%;
+              max-width: 100%;
+            }
+            .header {
+              text-align: center;
+              margin-bottom: 10px;
+            }
+            .title {
+              font-size: 14px;
+              font-weight: bold;
+            }
+            .divider {
+              border-top: 1px dashed #000;
+              margin: 10px 0;
+            }
+            .item {
+              display: flex;
+              justify-content: space-between;
+            }
+            .item-detail {
+              display: flex;
+              flex-direction: column;
+            }
+            .total {
+              font-weight: bold;
+              margin-top: 10px;
+            }
+            .footer {
+              text-align: center;
+              margin-top: 10px;
+              font-size: 10px;
+            }
+            @media print {
+              body {
+                width: ${receiptWidth}mm;
+              }
+              @page {
+                margin: 0;
+                size: ${receiptWidth}mm auto;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          ${receiptRef.current.innerHTML}
+          <script>
+            setTimeout(function() {
+              try {
+                window.print();
+                window.close();
+              } catch(e) {
+                console.error("Print error:", e);
+                window.close();
+              }
+            }, 500);
+          </script>
+        </body>
+      </html>
+    `);
+    
+    printWindow.document.close();
+  };
+
+  if (isLoadingTransactions) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-full">
+          <p>Memuat data transaksi...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+  
+  if (!transactions) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <h1 className="text-2xl font-semibold">Riwayat Transaksi</h1>
+          <SupabaseInfoBox />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <h1 className="text-2xl font-semibold">Manajemen Struk Belanja</h1>
+          <h1 className="text-2xl font-semibold">Riwayat Transaksi</h1>
         </div>
 
         <div className="flex items-center gap-3">
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
             <Input
-              placeholder="Cari transaksi berdasarkan ID, pelanggan, atau tanggal..."
+              placeholder="Cari nomor transaksi, pelanggan, atau kasir..."
               className="pl-9"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -135,13 +276,12 @@ const Receipt = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>ID Transaksi</TableHead>
-                  <TableHead>Tanggal & Waktu</TableHead>
+                  <TableHead>No. Transaksi</TableHead>
+                  <TableHead>Tanggal</TableHead>
                   <TableHead>Pelanggan</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead>Jumlah Item</TableHead>
-                  <TableHead>Metode Pembayaran</TableHead>
                   <TableHead>Kasir</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Metode Pembayaran</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
@@ -149,24 +289,28 @@ const Receipt = () => {
                 {filteredTransactions.length > 0 ? (
                   filteredTransactions.map((transaction) => (
                     <TableRow key={transaction.id}>
-                      <TableCell className="font-medium">{transaction.id}</TableCell>
-                      <TableCell>{formatDate(transaction.date)}</TableCell>
-                      <TableCell>{transaction.customer}</TableCell>
+                      <TableCell className="font-medium">{transaction.transaction_number}</TableCell>
+                      <TableCell>{formatDate(transaction.created_at)}</TableCell>
+                      <TableCell>{transaction.customer_name || "-"}</TableCell>
+                      <TableCell>{transaction.cashier_name}</TableCell>
                       <TableCell>{formatCurrency(transaction.total)}</TableCell>
-                      <TableCell>{transaction.items}</TableCell>
-                      <TableCell>{transaction.paymentMethod}</TableCell>
-                      <TableCell>{transaction.cashier}</TableCell>
+                      <TableCell>{transaction.payment_method}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button
                             size="icon"
                             variant="ghost"
-                            onClick={() => {
-                              setSelectedTransaction(transaction);
-                              setIsReceiptDialogOpen(true);
-                            }}
+                            onClick={() => viewTransaction(transaction)}
                           >
                             <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="text-red-500"
+                            onClick={() => confirmDelete(transaction)}
+                          >
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       </TableCell>
@@ -174,7 +318,7 @@ const Receipt = () => {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-6 text-gray-500">
+                    <TableCell colSpan={7} className="text-center py-6 text-gray-500">
                       Tidak ada data transaksi yang ditemukan
                     </TableCell>
                   </TableRow>
@@ -185,93 +329,177 @@ const Receipt = () => {
         </div>
       </div>
 
-      {/* Receipt Dialog */}
-      <Dialog open={isReceiptDialogOpen} onOpenChange={setIsReceiptDialogOpen}>
+      {/* View Receipt Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>Detail Struk</DialogTitle>
+            <DialogTitle>Detail Transaksi</DialogTitle>
           </DialogHeader>
           
-          {selectedTransaction && (
-            <div className="py-4">
-              <div className="receipt-container bg-white p-6 rounded-md border">
-                <div className="text-center mb-6">
-                  <h2 className="text-xl font-bold">Taichan Searah</h2>
-                  <p className="text-sm">Sistem Manajemen Kasir Indonesia</p>
-                  <p className="text-xs text-gray-500">Jl. Contoh No. 123, Jakarta</p>
-                  <p className="text-xs text-gray-500">Telp: (021) 123-4567</p>
-                </div>
-                
-                <div className="border-t border-b border-dashed py-2 mb-4">
-                  <div className="flex justify-between text-sm">
-                    <span>No. Transaksi:</span>
-                    <span className="font-medium">{selectedTransaction.id}</span>
+          {isLoadingItems ? (
+            <div className="py-8 text-center">
+              <p>Memuat detail transaksi...</p>
+            </div>
+          ) : (
+            <>
+              <div className="py-4">
+                <div className="receipt border rounded-md p-4" ref={receiptRef}>
+                  <div className="header text-center">
+                    <div className="title text-lg font-bold">{settings?.store_name || "Taichan Searah"}</div>
+                    <div className="text-sm">{settings?.store_address || "Jl. Contoh No. 123, Jakarta"}</div>
+                    <div className="text-sm">{settings?.store_phone || "(021) 123-4567"}</div>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Tanggal:</span>
-                    <span>{formatDate(selectedTransaction.date)}</span>
+                  
+                  <div className="divider border-t border-dashed my-4"></div>
+                  
+                  <div className="text-sm">
+                    <div className="flex justify-between">
+                      <span>No. Transaksi:</span>
+                      <span>{currentTransaction?.transaction_number}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Tanggal:</span>
+                      <span>{currentTransaction ? formatDate(currentTransaction.created_at) : ""}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Kasir:</span>
+                      <span>{currentTransaction?.cashier_name}</span>
+                    </div>
+                    {currentTransaction?.customer_name && (
+                      <div className="flex justify-between">
+                        <span>Pelanggan:</span>
+                        <span>{currentTransaction.customer_name}</span>
+                      </div>
+                    )}
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Kasir:</span>
-                    <span>{selectedTransaction.cashier}</span>
+                  
+                  <div className="divider border-t border-dashed my-4"></div>
+                  
+                  <div className="items space-y-2">
+                    {transactionItems.map((item) => (
+                      <div key={item.id} className="flex justify-between">
+                        <div>
+                          <div>{item.product_name}</div>
+                          <div className="text-sm">{formatCurrency(item.price)} x {item.quantity}</div>
+                        </div>
+                        <div className="font-medium">
+                          {formatCurrency(item.total)}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Pelanggan:</span>
-                    <span>{selectedTransaction.customer}</span>
+                  
+                  <div className="divider border-t border-dashed my-4"></div>
+                  
+                  <div className="totals space-y-1">
+                    <div className="flex justify-between">
+                      <span>Total:</span>
+                      <span className="font-bold">{formatCurrency(currentTransaction?.total)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Pembayaran ({currentTransaction?.payment_method}):</span>
+                      <span>{formatCurrency(currentTransaction?.payment_amount)}</span>
+                    </div>
+                    {currentTransaction && (
+                      <div className="flex justify-between">
+                        <span>Kembalian:</span>
+                        <span>{formatCurrency(Number(currentTransaction.payment_amount) - Number(currentTransaction.total))}</span>
+                      </div>
+                    )}
                   </div>
-                </div>
-                
-                <div className="mb-4">
-                  <table className="w-full text-sm">
-                    <thead className="border-b">
-                      <tr>
-                        <th className="text-left pb-1">Item</th>
-                        <th className="text-right pb-1">Qty</th>
-                        <th className="text-right pb-1">Harga</th>
-                        <th className="text-right pb-1">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {selectedTransaction.items_detail.map((item, index) => (
-                        <tr key={index} className="border-b border-dotted">
-                          <td className="py-1">{item.name}</td>
-                          <td className="text-right py-1">{item.quantity}</td>
-                          <td className="text-right py-1">{formatCurrency(item.price)}</td>
-                          <td className="text-right py-1">{formatCurrency(item.price * item.quantity)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                
-                <div className="mb-6">
-                  <div className="flex justify-between font-medium">
-                    <span>Total:</span>
-                    <span>{formatCurrency(selectedTransaction.total)}</span>
+                  
+                  <div className="divider border-t border-dashed my-4"></div>
+                  
+                  <div className="footer text-center text-sm">
+                    <p>{settings?.receipt_footer || "Terima kasih atas kunjungan Anda!"}</p>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span>Metode Pembayaran:</span>
-                    <span>{selectedTransaction.paymentMethod}</span>
-                  </div>
-                </div>
-                
-                <div className="text-center text-sm mt-4">
-                  <p>Terima kasih atas kunjungan Anda!</p>
-                  <p className="text-xs text-gray-500">Barang yang sudah dibeli tidak dapat ditukar/dikembalikan</p>
                 </div>
               </div>
               
-              <div className="flex justify-center mt-6">
+              <DialogFooter>
                 <Button 
-                  className="flex items-center gap-2 pos-btn"
-                  onClick={handlePrintReceipt}
+                  variant="outline" 
+                  className="w-full flex items-center gap-2"
+                  onClick={handlePrint}
                 >
                   <Printer className="h-4 w-4" />
                   Cetak Struk
                 </Button>
-              </div>
-            </div>
+              </DialogFooter>
+            </>
           )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Hapus Transaksi</DialogTitle>
+            <DialogDescription>
+              Yakin ingin menghapus transaksi {currentTransaction?.transaction_number}? Tindakan ini tidak dapat dibatalkan.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="flex items-center justify-center">
+                  <ReceiptIcon className="h-12 w-12 text-red-500 mb-2" />
+                </div>
+                <p className="text-center text-sm mb-2">
+                  Transaksi pada {currentTransaction ? formatDate(currentTransaction.created_at) : ""}
+                </p>
+                <p className="text-center font-semibold text-xl">
+                  {formatCurrency(currentTransaction?.total)}
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+          
+          <DialogFooter className="flex space-x-2 justify-end">
+            <DialogClose asChild>
+              <Button variant="outline">Batal</Button>
+            </DialogClose>
+            <Button 
+              variant="destructive"
+              onClick={handleDeleteRequest}
+            >
+              Hapus Transaksi
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Password Verification Dialog */}
+      <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Verifikasi Password</DialogTitle>
+            <DialogDescription>
+              Masukkan password owner untuk menghapus transaksi ini.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="py-4">
+            <Input
+              type="password"
+              placeholder="Masukkan password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+          
+          <DialogFooter className="flex space-x-2 justify-end">
+            <DialogClose asChild>
+              <Button variant="outline">Batal</Button>
+            </DialogClose>
+            <Button 
+              onClick={handlePasswordCheck}
+            >
+              Verifikasi
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </DashboardLayout>

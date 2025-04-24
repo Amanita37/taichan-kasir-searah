@@ -5,7 +5,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search, Plus, Minus, Trash2, Receipt } from "lucide-react";
+import { 
+  Search, 
+  Plus, 
+  Minus, 
+  Trash2, 
+  Receipt, 
+} from "lucide-react";
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogDescription,
+  DialogClose
+} from "@/components/ui/dialog";
 import { useToast } from "@/components/ui/use-toast";
 
 // Temporary product data (would come from Supabase)
@@ -45,6 +60,7 @@ const POS = () => {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [customerName, setCustomerName] = useState("");
   const [cashAmount, setCashAmount] = useState<number | "">("");
+  const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const { toast } = useToast();
 
   const filteredProducts = DEMO_PRODUCTS.filter(
@@ -81,6 +97,23 @@ const POS = () => {
     });
   };
 
+  const handleQuantityChange = (productId: number, value: string) => {
+    const quantity = parseInt(value);
+    
+    if (!isNaN(quantity) && quantity >= 0) {
+      setCart((currentCart) => {
+        return currentCart
+          .map((item) => {
+            if (item.id === productId) {
+              return { ...item, quantity: quantity };
+            }
+            return item;
+          })
+          .filter((item) => item.quantity > 0);
+      });
+    }
+  };
+
   const removeFromCart = (productId: number) => {
     setCart((currentCart) => currentCart.filter((item) => item.id !== productId));
   };
@@ -97,7 +130,7 @@ const POS = () => {
     return cashAmount - total;
   };
 
-  const handleCheckout = () => {
+  const openPaymentDialog = () => {
     if (cart.length === 0) {
       toast({
         title: "Keranjang Kosong",
@@ -106,7 +139,10 @@ const POS = () => {
       });
       return;
     }
+    setIsPaymentDialogOpen(true);
+  };
 
+  const handleCheckout = () => {
     if (typeof cashAmount !== "number" || cashAmount < calculateTotal()) {
       toast({
         title: "Pembayaran Tidak Mencukupi",
@@ -126,6 +162,7 @@ const POS = () => {
     setCart([]);
     setCustomerName("");
     setCashAmount("");
+    setIsPaymentDialogOpen(false);
   };
 
   const renderProductGrid = () => (
@@ -231,7 +268,13 @@ const POS = () => {
                       >
                         <Minus className="h-3 w-3" />
                       </Button>
-                      <span className="w-8 text-center">{item.quantity}</span>
+                      <Input
+                        type="number"
+                        value={item.quantity}
+                        onChange={(e) => handleQuantityChange(item.id, e.target.value)}
+                        className="w-14 h-7 text-center p-1"
+                        min="1"
+                      />
                       <Button
                         size="icon"
                         variant="outline"
@@ -291,13 +334,17 @@ const POS = () => {
               <Button
                 variant="outline"
                 className="w-full flex items-center gap-2"
+                onClick={() => toast({
+                  title: "Print Struk",
+                  description: "Fitur cetak struk sedang diimplementasikan.",
+                })}
               >
                 <Receipt className="h-4 w-4" />
                 Print Struk
               </Button>
               <Button
                 className="w-full bg-primary hover:bg-primary-dark text-secondary-foreground"
-                onClick={handleCheckout}
+                onClick={openPaymentDialog}
               >
                 Selesai
               </Button>
@@ -305,6 +352,67 @@ const POS = () => {
           </div>
         </div>
       </div>
+
+      {/* Payment confirmation dialog */}
+      <Dialog open={isPaymentDialogOpen} onOpenChange={setIsPaymentDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Konfirmasi Pembayaran</DialogTitle>
+            <DialogDescription>
+              Silakan periksa informasi pembayaran di bawah ini dengan benar sebelum menyelesaikan transaksi.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-2">
+            {customerName && (
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">Pelanggan:</span>
+                <span>{customerName}</span>
+              </div>
+            )}
+            
+            <div className="space-y-2">
+              <h3 className="font-medium">Daftar Produk:</h3>
+              {cart.map((item) => (
+                <div key={item.id} className="flex justify-between text-sm">
+                  <span>{item.name} x {item.quantity}</span>
+                  <span>{formatCurrency(item.price * item.quantity)}</span>
+                </div>
+              ))}
+            </div>
+            
+            <div className="border-t pt-2">
+              <div className="flex justify-between font-medium">
+                <span>Total:</span>
+                <span>{formatCurrency(calculateTotal())}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Jumlah Dibayar:</span>
+                <span>{typeof cashAmount === "number" ? formatCurrency(cashAmount) : "0"}</span>
+              </div>
+              {typeof cashAmount === "number" && cashAmount >= calculateTotal() && (
+                <div className="flex justify-between text-green-600 font-semibold">
+                  <span>Kembalian:</span>
+                  <span>{formatCurrency(calculateChange())}</span>
+                </div>
+              )}
+            </div>
+          </div>
+          
+          <DialogFooter className="flex space-x-2 justify-end">
+            <DialogClose asChild>
+              <Button variant="outline">Batal</Button>
+            </DialogClose>
+            <Button 
+              className="bg-primary hover:bg-primary-dark text-secondary-foreground"
+              onClick={handleCheckout}
+              disabled={typeof cashAmount !== "number" || cashAmount < calculateTotal()}
+            >
+              Konfirmasi Pembayaran
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </DashboardLayout>
   );
 };

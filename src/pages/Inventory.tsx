@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +18,7 @@ import {
   DialogTitle,
   DialogFooter,
   DialogClose,
+  DialogDescription
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -34,93 +35,12 @@ import {
   FileDown,
   FileUp,
   Package,
+  Image
 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/components/ui/use-toast";
-
-// Temporary inventory data (would come from Supabase)
-const DEMO_INVENTORY = [
-  { 
-    id: 1,
-    name: "Beras 5kg",
-    sku: "BP001",
-    category: "Bahan Pokok",
-    price: 65000,
-    cost: 58000,
-    stock: 25,
-    unit: "pack"
-  },
-  { 
-    id: 2,
-    name: "Minyak Goreng 2L",
-    sku: "BP002",
-    category: "Bahan Pokok",
-    price: 38000,
-    cost: 34000,
-    stock: 30,
-    unit: "botol"
-  },
-  { 
-    id: 3,
-    name: "Gula Pasir 1kg",
-    sku: "BP003",
-    category: "Bahan Pokok",
-    price: 15000,
-    cost: 13500,
-    stock: 40,
-    unit: "pack"
-  },
-  { 
-    id: 4,
-    name: "Tepung Terigu 1kg",
-    sku: "BP004",
-    category: "Bahan Pokok",
-    price: 12000,
-    cost: 10500,
-    stock: 35,
-    unit: "pack"
-  },
-  { 
-    id: 5,
-    name: "Telur Ayam 1kg",
-    sku: "FH001",
-    category: "Segar",
-    price: 27000,
-    cost: 24000,
-    stock: 20,
-    unit: "tray"
-  },
-  { 
-    id: 6,
-    name: "Ayam Potong 1kg",
-    sku: "FH002",
-    category: "Segar",
-    price: 32000,
-    cost: 28000,
-    stock: 15,
-    unit: "pack"
-  },
-  { 
-    id: 7,
-    name: "Coca Cola 1.5L",
-    sku: "BV001",
-    category: "Minuman",
-    price: 16000,
-    cost: 13000,
-    stock: 45,
-    unit: "botol"
-  },
-  { 
-    id: 8,
-    name: "Aqua 1.5L",
-    sku: "BV002",
-    category: "Minuman",
-    price: 7000,
-    cost: 5500,
-    stock: 60,
-    unit: "botol"
-  },
-];
+import { useProducts } from "@/hooks/useProducts";
+import SupabaseInfoBox from "@/components/SupabaseInfoBox";
 
 const CATEGORIES = ["Bahan Pokok", "Segar", "Minuman", "Makanan", "Lainnya"];
 const UNITS = ["pack", "botol", "tray", "karton", "kg", "pcs"];
@@ -133,6 +53,7 @@ interface ProductFormData {
   cost: string;
   stock: string;
   unit: string;
+  image?: File;
 }
 
 const formatCurrency = (amount: number): string => {
@@ -144,13 +65,23 @@ const formatCurrency = (amount: number): string => {
 };
 
 const Inventory = () => {
-  const [inventory, setInventory] = useState(DEMO_INVENTORY);
+  const { toast } = useToast();
+  const {
+    products,
+    isLoadingProducts,
+    addProduct,
+    updateProduct,
+    deleteProduct,
+    uploadProductImage
+  } = useProducts();
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isStockDialogOpen, setIsStockDialogOpen] = useState(false);
-  const [currentProduct, setCurrentProduct] = useState<typeof DEMO_INVENTORY[0] | null>(null);
-  const { toast } = useToast();
+  const [currentProduct, setCurrentProduct] = useState<any | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const [formData, setFormData] = useState<ProductFormData>({
     name: "",
@@ -167,12 +98,12 @@ const Inventory = () => {
     quantity: ""
   });
 
-  const filteredInventory = inventory.filter(
+  const filteredProducts = products ? products.filter(
     (item) =>
       item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.sku.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.barcode && item.barcode.toLowerCase().includes(searchQuery.toLowerCase())) ||
       item.category.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  ) : [];
 
   const resetForm = () => {
     setFormData({
@@ -184,6 +115,7 @@ const Inventory = () => {
       stock: "",
       unit: ""
     });
+    setImagePreview(null);
   };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -194,6 +126,23 @@ const Inventory = () => {
     }));
   };
 
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setFormData((prev) => ({
+        ...prev,
+        image: file,
+      }));
+      
+      // Create image preview
+      const reader = new FileReader();
+      reader.onload = () => {
+        setImagePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleSelectChange = (name: string, value: string) => {
     setFormData((prev) => ({
       ...prev,
@@ -201,94 +150,131 @@ const Inventory = () => {
     }));
   };
 
-  const handleAddProduct = () => {
+  const handleAddProduct = async () => {
     // Simple validation
-    if (!formData.name || !formData.sku || !formData.category || !formData.price || !formData.cost || !formData.stock || !formData.unit) {
+    if (!formData.name || !formData.category || !formData.price || !formData.unit) {
       toast({
         title: "Validasi Gagal",
-        description: "Semua field harus diisi",
+        description: "Nama, kategori, harga, dan satuan harus diisi",
         variant: "destructive",
       });
       return;
     }
 
-    // Add new product (would connect to Supabase in production)
-    const newProduct = {
-      id: inventory.length + 1,
-      name: formData.name,
-      sku: formData.sku,
-      category: formData.category,
-      price: parseFloat(formData.price),
-      cost: parseFloat(formData.cost),
-      stock: parseFloat(formData.stock),
-      unit: formData.unit,
-    };
-
-    setInventory((prev) => [...prev, newProduct]);
-    setIsAddDialogOpen(false);
-    resetForm();
-    
-    toast({
-      title: "Produk Ditambahkan",
-      description: `${formData.name} berhasil ditambahkan ke inventaris.`,
-    });
+    try {
+      setIsUploading(true);
+      
+      // Upload image if provided
+      let imageUrl = '/placeholder.svg';
+      if (formData.image) {
+        imageUrl = await uploadProductImage(formData.image);
+      }
+      
+      // Add product to database
+      await addProduct({
+        name: formData.name,
+        category: formData.category,
+        price: parseInt(formData.price) || 0,
+        barcode: formData.sku || null,
+        stock: parseInt(formData.stock) || 0,
+        image_url: imageUrl
+      });
+      
+      setIsAddDialogOpen(false);
+      resetForm();
+      
+      toast({
+        title: "Produk Ditambahkan",
+        description: `${formData.name} berhasil ditambahkan ke inventaris.`,
+      });
+    } catch (error) {
+      console.error('Error adding product:', error);
+      toast({
+        title: "Gagal Menambahkan Produk",
+        description: "Terjadi kesalahan saat menambahkan produk.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
-  const handleEditProduct = () => {
+  const handleEditProduct = async () => {
     if (!currentProduct) return;
 
     // Simple validation
-    if (!formData.name || !formData.sku || !formData.category || !formData.price || !formData.cost || !formData.unit) {
+    if (!formData.name || !formData.category || !formData.price || !formData.unit) {
       toast({
         title: "Validasi Gagal",
-        description: "Semua field harus diisi",
+        description: "Nama, kategori, harga, dan satuan harus diisi",
         variant: "destructive",
       });
       return;
     }
 
-    // Update product (would connect to Supabase in production)
-    setInventory((prev) =>
-      prev.map((item) => {
-        if (item.id === currentProduct.id) {
-          return {
-            ...item,
-            name: formData.name,
-            sku: formData.sku,
-            category: formData.category,
-            price: parseFloat(formData.price),
-            cost: parseFloat(formData.cost),
-            unit: formData.unit,
-          };
-        }
-        return item;
-      })
-    );
-
-    setIsEditDialogOpen(false);
-    resetForm();
-    
-    toast({
-      title: "Produk Diperbarui",
-      description: `${formData.name} berhasil diperbarui.`,
-    });
+    try {
+      setIsUploading(true);
+      
+      // Update product data
+      const updateData: any = {
+        name: formData.name,
+        category: formData.category,
+        price: parseInt(formData.price) || 0,
+        barcode: formData.sku || null
+      };
+      
+      // Upload and update image if provided
+      if (formData.image) {
+        updateData.image_url = await uploadProductImage(formData.image);
+      }
+      
+      await updateProduct({ 
+        id: currentProduct.id, 
+        data: updateData 
+      });
+      
+      setIsEditDialogOpen(false);
+      resetForm();
+      
+      toast({
+        title: "Produk Diperbarui",
+        description: `${formData.name} berhasil diperbarui.`,
+      });
+    } catch (error) {
+      console.error('Error updating product:', error);
+      toast({
+        title: "Gagal Memperbarui Produk",
+        description: "Terjadi kesalahan saat memperbarui produk.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
-  const handleDeleteProduct = (id: number) => {
-    // Delete product (would connect to Supabase in production)
-    const productToDelete = inventory.find((item) => item.id === id);
-    
-    if (!productToDelete) return;
-    
-    setInventory((prev) => prev.filter((item) => item.id !== id));
-    
-    toast({
-      title: "Produk Dihapus",
-      description: `${productToDelete.name} berhasil dihapus dari inventaris.`,
-    });
+  const handleDeleteProduct = async (id: string) => {
+    try {
+      const productToDelete = products?.find((item) => item.id === id);
+      
+      if (!productToDelete) return;
+      
+      await deleteProduct(id);
+      
+      toast({
+        title: "Produk Dihapus",
+        description: `${productToDelete.name} berhasil dihapus dari inventaris.`,
+      });
+    } catch (error) {
+      console.error('Error deleting product:', error);
+      toast({
+        title: "Gagal Menghapus Produk",
+        description: "Terjadi kesalahan saat menghapus produk.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const handleStockAdjustment = () => {
+  const handleStockAdjustment = async () => {
     if (!currentProduct || stockAdjustment.quantity === "") return;
 
     const quantity = parseFloat(stockAdjustment.quantity);
@@ -302,48 +288,76 @@ const Inventory = () => {
       return;
     }
 
-    // Update stock (would connect to Supabase in production)
-    setInventory((prev) =>
-      prev.map((item) => {
-        if (item.id === currentProduct.id) {
-          const newStock = stockAdjustment.type === "add" 
-            ? item.stock + quantity 
-            : Math.max(0, item.stock - quantity);
-            
-          return { ...item, stock: newStock };
-        }
-        return item;
-      })
-    );
-
-    setIsStockDialogOpen(false);
-    setStockAdjustment({ type: "add", quantity: "" });
-    
-    toast({
-      title: "Stok Diperbarui",
-      description: `Stok ${currentProduct.name} berhasil diperbarui.`,
-    });
+    try {
+      // Calculate new stock
+      const newStock = stockAdjustment.type === "add" 
+        ? (currentProduct.stock + quantity)
+        : Math.max(0, currentProduct.stock - quantity);
+      
+      // Update stock
+      await updateProduct({
+        id: currentProduct.id,
+        data: { stock: newStock }
+      });
+      
+      setIsStockDialogOpen(false);
+      setStockAdjustment({ type: "add", quantity: "" });
+      
+      toast({
+        title: "Stok Diperbarui",
+        description: `Stok ${currentProduct.name} berhasil diperbarui.`,
+      });
+    } catch (error) {
+      console.error('Error updating stock:', error);
+      toast({
+        title: "Gagal Memperbarui Stok",
+        description: "Terjadi kesalahan saat memperbarui stok.",
+        variant: "destructive",
+      });
+    }
   };
 
-  const openEditDialog = (product: typeof DEMO_INVENTORY[0]) => {
+  const openEditDialog = (product: any) => {
     setCurrentProduct(product);
     setFormData({
       name: product.name,
-      sku: product.sku,
+      sku: product.barcode || "",
       category: product.category,
-      price: product.price.toString(),
-      cost: product.cost.toString(),
-      stock: product.stock.toString(),
-      unit: product.unit,
+      price: product.price?.toString() || "0",
+      cost: "0", // Not stored in our schema currently
+      stock: product.stock?.toString() || "0",
+      unit: "pcs" // Not stored in our schema currently
     });
+    setImagePreview(product.image_url);
     setIsEditDialogOpen(true);
   };
 
-  const openStockDialog = (product: typeof DEMO_INVENTORY[0]) => {
+  const openStockDialog = (product: any) => {
     setCurrentProduct(product);
     setStockAdjustment({ type: "add", quantity: "" });
     setIsStockDialogOpen(true);
   };
+
+  if (isLoadingProducts) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-full">
+          <p>Memuat data inventaris...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (!products) {
+    return (
+      <DashboardLayout>
+        <div className="space-y-6">
+          <h1 className="text-2xl font-semibold">Manajemen Inventaris</h1>
+          <SupabaseInfoBox />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -395,25 +409,30 @@ const Inventory = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>SKU</TableHead>
+                  <TableHead>Gambar</TableHead>
                   <TableHead>Nama Produk</TableHead>
                   <TableHead>Kategori</TableHead>
                   <TableHead>Harga Jual</TableHead>
-                  <TableHead>Harga Beli</TableHead>
                   <TableHead>Stok</TableHead>
-                  <TableHead>Satuan</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredInventory.length > 0 ? (
-                  filteredInventory.map((product) => (
+                {filteredProducts.length > 0 ? (
+                  filteredProducts.map((product) => (
                     <TableRow key={product.id}>
-                      <TableCell className="font-medium">{product.sku}</TableCell>
-                      <TableCell>{product.name}</TableCell>
+                      <TableCell>
+                        <div className="h-10 w-10 rounded overflow-hidden bg-gray-100">
+                          <img 
+                            src={product.image_url || "/placeholder.svg"} 
+                            alt={product.name}
+                            className="h-full w-full object-cover"
+                          />
+                        </div>
+                      </TableCell>
+                      <TableCell className="font-medium">{product.name}</TableCell>
                       <TableCell>{product.category}</TableCell>
                       <TableCell>{formatCurrency(product.price)}</TableCell>
-                      <TableCell>{formatCurrency(product.cost)}</TableCell>
                       <TableCell>
                         <span
                           className={`rounded px-2 py-1 text-xs font-semibold ${
@@ -427,7 +446,6 @@ const Inventory = () => {
                           {product.stock}
                         </span>
                       </TableCell>
-                      <TableCell>{product.unit}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button
@@ -458,7 +476,7 @@ const Inventory = () => {
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center py-6 text-gray-500">
+                    <TableCell colSpan={6} className="text-center py-6 text-gray-500">
                       Tidak ada data produk yang ditemukan
                     </TableCell>
                   </TableRow>
@@ -476,6 +494,35 @@ const Inventory = () => {
             <DialogTitle>Tambah Produk Baru</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
+            <div className="flex flex-col items-center space-y-2">
+              <div 
+                className="h-32 w-32 rounded-md border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden"
+                style={{ position: 'relative' }}
+              >
+                {imagePreview ? (
+                  <img 
+                    src={imagePreview}
+                    alt="Preview" 
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="text-center p-4 text-gray-500">
+                    <Image className="h-8 w-8 mx-auto mb-2" />
+                    <p className="text-xs">Klik untuk upload gambar</p>
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                />
+              </div>
+              <p className="text-sm text-gray-500">
+                Upload gambar produk (opsional)
+              </p>
+            </div>
+            
             <div className="space-y-2">
               <Label htmlFor="name">Nama Produk</Label>
               <Input
@@ -487,13 +534,13 @@ const Inventory = () => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="sku">SKU</Label>
+              <Label htmlFor="sku">Barcode / SKU</Label>
               <Input
                 id="sku"
                 name="sku"
                 value={formData.sku}
                 onChange={handleInputChange}
-                placeholder="Masukkan kode produk"
+                placeholder="Masukkan kode produk (opsional)"
               />
             </div>
             <div className="space-y-2">
@@ -516,17 +563,6 @@ const Inventory = () => {
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label htmlFor="cost">Harga Beli</Label>
-                <Input
-                  id="cost"
-                  name="cost"
-                  type="number"
-                  value={formData.cost}
-                  onChange={handleInputChange}
-                  placeholder="0"
-                />
-              </div>
-              <div className="space-y-2">
                 <Label htmlFor="price">Harga Jual</Label>
                 <Input
                   id="price"
@@ -537,8 +573,6 @@ const Inventory = () => {
                   placeholder="0"
                 />
               </div>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="stock">Stok Awal</Label>
                 <Input
@@ -550,106 +584,9 @@ const Inventory = () => {
                   placeholder="0"
                 />
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="unit">Satuan</Label>
-                <Select
-                  value={formData.unit}
-                  onValueChange={(value) => handleSelectChange("unit", value)}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Pilih satuan" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {UNITS.map((unit) => (
-                      <SelectItem key={unit} value={unit}>
-                        {unit}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          </div>
-          <DialogFooter className="flex space-x-2 justify-end">
-            <DialogClose asChild>
-              <Button variant="outline">Batal</Button>
-            </DialogClose>
-            <Button onClick={handleAddProduct} className="bg-primary hover:bg-primary-dark text-secondary-foreground">Simpan</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Edit Product Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Edit Produk</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-name">Nama Produk</Label>
-              <Input
-                id="edit-name"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                placeholder="Masukkan nama produk"
-              />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="edit-sku">SKU</Label>
-              <Input
-                id="edit-sku"
-                name="sku"
-                value={formData.sku}
-                onChange={handleInputChange}
-                placeholder="Masukkan kode produk"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-category">Kategori</Label>
-              <Select
-                value={formData.category}
-                onValueChange={(value) => handleSelectChange("category", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih kategori" />
-                </SelectTrigger>
-                <SelectContent>
-                  {CATEGORIES.map((category) => (
-                    <SelectItem key={category} value={category}>
-                      {category}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="edit-cost">Harga Beli</Label>
-                <Input
-                  id="edit-cost"
-                  name="cost"
-                  type="number"
-                  value={formData.cost}
-                  onChange={handleInputChange}
-                  placeholder="0"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="edit-price">Harga Jual</Label>
-                <Input
-                  id="edit-price"
-                  name="price"
-                  type="number"
-                  value={formData.price}
-                  onChange={handleInputChange}
-                  placeholder="0"
-                />
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-unit">Satuan</Label>
+              <Label htmlFor="unit">Satuan</Label>
               <Select
                 value={formData.unit}
                 onValueChange={(value) => handleSelectChange("unit", value)}
@@ -671,7 +608,114 @@ const Inventory = () => {
             <DialogClose asChild>
               <Button variant="outline">Batal</Button>
             </DialogClose>
-            <Button onClick={handleEditProduct} className="bg-primary hover:bg-primary-dark text-secondary-foreground">Perbarui</Button>
+            <Button 
+              onClick={handleAddProduct} 
+              className="bg-primary hover:bg-primary-dark text-secondary-foreground"
+              disabled={isUploading}
+            >
+              {isUploading ? "Menyimpan..." : "Simpan"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Product Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Produk</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="flex flex-col items-center space-y-2">
+              <div 
+                className="h-32 w-32 rounded-md border-2 border-dashed border-gray-300 flex items-center justify-center overflow-hidden"
+                style={{ position: 'relative' }}
+              >
+                {imagePreview ? (
+                  <img 
+                    src={imagePreview}
+                    alt="Preview" 
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  <div className="text-center p-4 text-gray-500">
+                    <Image className="h-8 w-8 mx-auto mb-2" />
+                    <p className="text-xs">Klik untuk upload gambar</p>
+                  </div>
+                )}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="absolute inset-0 opacity-0 cursor-pointer"
+                />
+              </div>
+              <p className="text-sm text-gray-500">
+                Upload gambar produk baru (opsional)
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="edit-name">Nama Produk</Label>
+              <Input
+                id="edit-name"
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                placeholder="Masukkan nama produk"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-sku">Barcode / SKU</Label>
+              <Input
+                id="edit-sku"
+                name="sku"
+                value={formData.sku}
+                onChange={handleInputChange}
+                placeholder="Masukkan kode produk (opsional)"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-category">Kategori</Label>
+              <Select
+                value={formData.category}
+                onValueChange={(value) => handleSelectChange("category", value)}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Pilih kategori" />
+                </SelectTrigger>
+                <SelectContent>
+                  {CATEGORIES.map((category) => (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-price">Harga Jual</Label>
+              <Input
+                id="edit-price"
+                name="price"
+                type="number"
+                value={formData.price}
+                onChange={handleInputChange}
+                placeholder="0"
+              />
+            </div>
+          </div>
+          <DialogFooter className="flex space-x-2 justify-end">
+            <DialogClose asChild>
+              <Button variant="outline">Batal</Button>
+            </DialogClose>
+            <Button 
+              onClick={handleEditProduct} 
+              className="bg-primary hover:bg-primary-dark text-secondary-foreground"
+              disabled={isUploading}
+            >
+              {isUploading ? "Menyimpan..." : "Perbarui"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -686,7 +730,7 @@ const Inventory = () => {
             {currentProduct && (
               <div className="bg-gray-50 p-3 rounded-md">
                 <p className="font-medium">{currentProduct.name}</p>
-                <p className="text-sm text-gray-500">Stok saat ini: {currentProduct.stock} {currentProduct.unit}</p>
+                <p className="text-sm text-gray-500">Stok saat ini: {currentProduct.stock}</p>
               </div>
             )}
             <div className="space-y-2">
@@ -719,7 +763,12 @@ const Inventory = () => {
             <DialogClose asChild>
               <Button variant="outline">Batal</Button>
             </DialogClose>
-            <Button onClick={handleStockAdjustment} className="bg-primary hover:bg-primary-dark text-secondary-foreground">Simpan</Button>
+            <Button 
+              onClick={handleStockAdjustment} 
+              className="bg-primary hover:bg-primary-dark text-secondary-foreground"
+            >
+              Simpan
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
