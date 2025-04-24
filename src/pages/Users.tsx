@@ -1,17 +1,7 @@
-
 import { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -20,22 +10,11 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  Search,
-  Plus,
-  Edit,
-  Trash2,
-  UserPlus,
-  Users as UsersIcon,
-} from "lucide-react";
+import { Search, UserPlus } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import UserTable from "@/components/users/UserTable";
+import UserForm from "@/components/users/UserForm";
+import { type User, type UserFormData, getRoleName } from "@/types/user";
 
 // Temporary user data (would come from Supabase)
 const DEMO_USERS = [
@@ -73,41 +52,12 @@ const DEMO_USERS = [
   },
 ];
 
-const USER_ROLES = [
-  { id: "owner", name: "Pemilik Toko" },
-  { id: "warehouse_admin", name: "Admin Gudang" },
-  { id: "cashier", name: "Kasir" },
-];
-
-interface UserFormData {
-  name: string;
-  email: string;
-  password: string;
-  role: string;
-}
-
-// Format date to locale string
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleString("id-ID", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
-
-const getRoleName = (roleId: string) => {
-  const role = USER_ROLES.find(r => r.id === roleId);
-  return role ? role.name : roleId;
-};
-
 const Users = () => {
   const [users, setUsers] = useState(DEMO_USERS);
   const [searchQuery, setSearchQuery] = useState("");
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [currentUser, setCurrentUser] = useState<typeof DEMO_USERS[0] | null>(null);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const { toast } = useToast();
 
   const [formData, setFormData] = useState<UserFormData>({
@@ -133,33 +83,25 @@ const Users = () => {
     });
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
+  const handleFormChange = (name: string, value: string) => {
     setFormData((prev) => ({
       ...prev,
       [name]: value,
     }));
   };
 
-  const handleSelectChange = (name: string, value: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      [name]: value,
-    }));
-  };
-
-  const handleAddUser = () => {
-    // Simple validation
-    if (!formData.name || !formData.email || !formData.password || !formData.role) {
+  const validateForm = () => {
+    if (!formData.name || !formData.email || !formData.role || (!currentUser && !formData.password)) {
       toast({
         title: "Validasi Gagal",
-        description: "Semua field harus diisi",
+        description: currentUser
+          ? "Nama, email, dan role harus diisi"
+          : "Semua field harus diisi",
         variant: "destructive",
       });
-      return;
+      return false;
     }
 
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
       toast({
@@ -167,10 +109,15 @@ const Users = () => {
         description: "Format email tidak valid",
         variant: "destructive",
       });
-      return;
+      return false;
     }
 
-    // Add new user (would connect to Supabase in production)
+    return true;
+  };
+
+  const handleAddUser = () => {
+    if (!validateForm()) return;
+
     const newUser = {
       id: users.length + 1,
       name: formData.name,
@@ -191,30 +138,8 @@ const Users = () => {
   };
 
   const handleEditUser = () => {
-    if (!currentUser) return;
+    if (!currentUser || !validateForm()) return;
 
-    // Simple validation
-    if (!formData.name || !formData.email || !formData.role) {
-      toast({
-        title: "Validasi Gagal",
-        description: "Nama, email, dan role harus diisi",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      toast({
-        title: "Validasi Gagal",
-        description: "Format email tidak valid",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Update user (would connect to Supabase in production)
     setUsers((prev) =>
       prev.map((user) => {
         if (user.id === currentUser.id) {
@@ -223,8 +148,6 @@ const Users = () => {
             name: formData.name,
             email: formData.email,
             role: formData.role,
-            // Only update password if provided
-            ...(formData.password ? { password: formData.password } : {}),
           };
         }
         return user;
@@ -241,7 +164,6 @@ const Users = () => {
   };
 
   const toggleUserStatus = (id: number) => {
-    // Toggle user active status (would connect to Supabase in production)
     setUsers((prev) =>
       prev.map((user) => {
         if (user.id === id) {
@@ -257,12 +179,12 @@ const Users = () => {
     );
   };
 
-  const openEditDialog = (user: typeof DEMO_USERS[0]) => {
+  const openEditDialog = (user: User) => {
     setCurrentUser(user);
     setFormData({
       name: user.name,
       email: user.email,
-      password: "", // Don't show existing password
+      password: "",
       role: user.role,
     });
     setIsEditDialogOpen(true);
@@ -274,7 +196,7 @@ const Users = () => {
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <h1 className="text-2xl font-semibold">Manajemen Pengguna</h1>
           <Button 
-            className="pos-btn flex items-center gap-2"
+            className="flex items-center gap-2"
             onClick={() => {
               resetForm();
               setIsAddDialogOpen(true);
@@ -297,69 +219,11 @@ const Users = () => {
           </div>
         </div>
 
-        <div className="rounded-md border shadow">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nama</TableHead>
-                  <TableHead>Email</TableHead>
-                  <TableHead>Peran</TableHead>
-                  <TableHead>Login Terakhir</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Aksi</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredUsers.length > 0 ? (
-                  filteredUsers.map((user) => (
-                    <TableRow key={user.id}>
-                      <TableCell className="font-medium">{user.name}</TableCell>
-                      <TableCell>{user.email}</TableCell>
-                      <TableCell>{getRoleName(user.role)}</TableCell>
-                      <TableCell>{user.lastLogin ? formatDate(user.lastLogin) : "Belum login"}</TableCell>
-                      <TableCell>
-                        <span
-                          className={`rounded px-2 py-1 text-xs font-semibold ${
-                            user.isActive
-                              ? "bg-green-100 text-green-800"
-                              : "bg-red-100 text-red-800"
-                          }`}
-                        >
-                          {user.isActive ? "Aktif" : "Nonaktif"}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => openEditDialog(user)}
-                          >
-                            Edit
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant={user.isActive ? "destructive" : "outline"}
-                            onClick={() => toggleUserStatus(user.id)}
-                          >
-                            {user.isActive ? "Nonaktifkan" : "Aktifkan"}
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                ) : (
-                  <TableRow>
-                    <TableCell colSpan={6} className="text-center py-6 text-gray-500">
-                      Tidak ada data pengguna yang ditemukan
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        </div>
+        <UserTable 
+          users={filteredUsers}
+          onEditUser={openEditDialog}
+          onToggleStatus={toggleUserStatus}
+        />
       </div>
 
       {/* Add User Dialog */}
@@ -368,63 +232,15 @@ const Users = () => {
           <DialogHeader>
             <DialogTitle>Tambah Pengguna Baru</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Nama</Label>
-              <Input
-                id="name"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                placeholder="Masukkan nama lengkap"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                placeholder="email@example.com"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                placeholder="Masukkan password"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="role">Peran</Label>
-              <Select
-                value={formData.role}
-                onValueChange={(value) => handleSelectChange("role", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih peran" />
-                </SelectTrigger>
-                <SelectContent>
-                  {USER_ROLES.map((role) => (
-                    <SelectItem key={role.id} value={role.id}>
-                      {role.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <UserForm 
+            formData={formData}
+            onChange={handleFormChange}
+          />
           <DialogFooter className="flex space-x-2 justify-end">
             <DialogClose asChild>
               <Button variant="outline">Batal</Button>
             </DialogClose>
-            <Button onClick={handleAddUser} className="bg-primary hover:bg-primary-dark text-secondary-foreground">Simpan</Button>
+            <Button onClick={handleAddUser}>Simpan</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -435,63 +251,16 @@ const Users = () => {
           <DialogHeader>
             <DialogTitle>Edit Pengguna</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="edit-name">Nama</Label>
-              <Input
-                id="edit-name"
-                name="name"
-                value={formData.name}
-                onChange={handleInputChange}
-                placeholder="Masukkan nama lengkap"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-email">Email</Label>
-              <Input
-                id="edit-email"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleInputChange}
-                placeholder="email@example.com"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-password">Password (Kosongkan jika tidak diubah)</Label>
-              <Input
-                id="edit-password"
-                name="password"
-                type="password"
-                value={formData.password}
-                onChange={handleInputChange}
-                placeholder="Masukkan password baru"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="edit-role">Peran</Label>
-              <Select
-                value={formData.role}
-                onValueChange={(value) => handleSelectChange("role", value)}
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Pilih peran" />
-                </SelectTrigger>
-                <SelectContent>
-                  {USER_ROLES.map((role) => (
-                    <SelectItem key={role.id} value={role.id}>
-                      {role.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          <UserForm 
+            formData={formData}
+            isEdit
+            onChange={handleFormChange}
+          />
           <DialogFooter className="flex space-x-2 justify-end">
             <DialogClose asChild>
               <Button variant="outline">Batal</Button>
             </DialogClose>
-            <Button onClick={handleEditUser} className="bg-primary hover:bg-primary-dark text-secondary-foreground">Perbarui</Button>
+            <Button onClick={handleEditUser}>Perbarui</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
