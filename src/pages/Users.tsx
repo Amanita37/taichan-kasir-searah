@@ -33,7 +33,7 @@ import {
   Edit,
   Trash2,
   UserPlus,
-  Users,
+  Users as UsersIcon,
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 
