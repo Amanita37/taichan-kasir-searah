@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -9,18 +8,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/components/ui/use-toast";
+import { useSettings } from "@/hooks/useSettings";
 
 const Settings = () => {
   const { toast } = useToast();
+  const { settings, isLoading, updateSettings } = useSettings();
   
   const [storeSettings, setStoreSettings] = useState({
-    name: "Taichan Searah",
-    address: "Jl. Contoh No. 123, Jakarta",
-    phone: "(021) 123-4567",
-    email: "info@taichansearah.com",
-    taxId: "12.345.678.9-012.000",
-    receiptHeader: "Taichan Searah - Toko Kelontong",
-    receiptFooter: "Terima kasih atas kunjungan Anda!\nBarang yang sudah dibeli tidak dapat ditukar/dikembalikan.",
+    store_name: settings?.store_name ?? "",
+    store_address: settings?.store_address ?? "",
+    store_phone: settings?.store_phone ?? "",
+    receipt_footer: settings?.receipt_footer ?? "",
   });
   
   const [posSettings, setPosSettings] = useState({
@@ -68,19 +66,45 @@ const Settings = () => {
     setInventorySettings(prev => ({ ...prev, [name]: checked }));
   };
   
-  const handleSaveSettings = (settingType: string) => {
-    // This would connect to Supabase in production
-    toast({
-      title: "Pengaturan Disimpan",
-      description: `Pengaturan ${
-        settingType === "store" 
-          ? "toko" 
-          : settingType === "pos" 
-          ? "POS" 
-          : "inventaris"
-      } berhasil diperbarui.`,
-    });
+  const handleSaveSettings = async (settingType: string) => {
+    try {
+      if (settingType === "store") {
+        await updateSettings(storeSettings);
+      }
+      else if (settingType === "pos") {
+        await updateSettings(posSettings);
+      } else if (settingType === "inventory") {
+        await updateSettings(inventorySettings);
+      }
+      
+      toast({
+        title: "Pengaturan Disimpan",
+        description: `Pengaturan ${
+          settingType === "store" 
+            ? "toko" 
+            : settingType === "pos" 
+            ? "POS" 
+            : "inventaris"
+        } berhasil diperbarui.`,
+      });
+    } catch (error) {
+      toast({
+        title: "Gagal Menyimpan Pengaturan",
+        description: "Terjadi kesalahan saat menyimpan pengaturan.",
+        variant: "destructive",
+      });
+    }
   };
+
+  if (isLoading) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center h-full">
+          <p>Memuat pengaturan...</p>
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   return (
     <DashboardLayout>
@@ -112,7 +136,7 @@ const Settings = () => {
                       <Input
                         id="storeName"
                         name="name"
-                        value={storeSettings.name}
+                        value={storeSettings.store_name}
                         onChange={handleStoreSettingChange}
                       />
                     </div>
@@ -132,7 +156,7 @@ const Settings = () => {
                     <Textarea
                       id="address"
                       name="address"
-                      value={storeSettings.address}
+                      value={storeSettings.store_address}
                       onChange={handleStoreSettingChange}
                       rows={2}
                     />
@@ -144,7 +168,7 @@ const Settings = () => {
                       <Input
                         id="phone"
                         name="phone"
-                        value={storeSettings.phone}
+                        value={storeSettings.store_phone}
                         onChange={handleStoreSettingChange}
                       />
                     </div>
@@ -178,7 +202,7 @@ const Settings = () => {
                     <Textarea
                       id="receiptFooter"
                       name="receiptFooter"
-                      value={storeSettings.receiptFooter}
+                      value={storeSettings.receipt_footer}
                       onChange={handleStoreSettingChange}
                       rows={2}
                     />
