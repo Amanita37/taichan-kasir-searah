@@ -1,31 +1,13 @@
-
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-
-interface CartItem {
-  id: number;
-  name: string;
-  price: number;
-  quantity: number;
-}
-
-interface PaymentDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  cart: CartItem[];
-  customerName: string;
-  cashAmount: number | "";
-  total: number;
-  onConfirm: () => void;
-}
+import { type PaymentDialogProps } from "@/types/pos";
 
 const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat("id-ID", {

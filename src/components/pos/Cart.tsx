@@ -1,29 +1,8 @@
-
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Receipt } from "lucide-react";
 import CartItem from "./CartItem";
-
-interface CartItem {
-  id: number;
-  name: string;
-  price: number;
-  quantity: number;
-}
-
-interface CartProps {
-  cart: CartItem[];
-  customerName: string;
-  cashAmount: number | "";
-  onCustomerNameChange: (value: string) => void;
-  onCashAmountChange: (value: string) => void;
-  onQuantityChange: (productId: number, value: string) => void;
-  onUpdateQuantity: (productId: number, change: number) => void;
-  onRemoveFromCart: (productId: number) => void;
-  onPrintReceipt: () => void;
-  onCheckout: () => void;
-  calculateTotal: () => number;
-}
+import { type CartProps } from "@/types/pos";
 
 const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat("id-ID", {

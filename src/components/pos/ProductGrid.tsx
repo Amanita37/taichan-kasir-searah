@@ -1,19 +1,27 @@
 
 import { Card, CardContent } from "@/components/ui/card";
+import { type ProductGridProps } from "@/types/pos";
+import { Skeleton } from "@/components/ui/skeleton";
 
-interface Product {
-  id: number;
-  name: string;
-  price: number;
-  image: string;
-}
+const ProductGrid = ({ products, onProductClick, isLoading }: ProductGridProps) => {
+  if (isLoading) {
+    return (
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        {Array.from({ length: 10 }).map((_, index) => (
+          <Card key={index} className="cursor-pointer hover:shadow-md transition-shadow">
+            <CardContent className="p-3">
+              <div className="aspect-square w-full overflow-hidden rounded-md bg-gray-100 mb-2">
+                <Skeleton className="h-full w-full" />
+              </div>
+              <Skeleton className="h-4 w-3/4 mb-2" />
+              <Skeleton className="h-4 w-1/2" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    );
+  }
 
-interface ProductGridProps {
-  products: Product[];
-  onProductClick: (product: Product) => void;
-}
-
-const ProductGrid = ({ products, onProductClick }: ProductGridProps) => {
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
       {products.map((product) => (
@@ -25,7 +33,7 @@ const ProductGrid = ({ products, onProductClick }: ProductGridProps) => {
           <CardContent className="p-3">
             <div className="aspect-square w-full overflow-hidden rounded-md bg-gray-100 mb-2">
               <img
-                src={product.image}
+                src={product.image || "/placeholder.svg"}
                 alt={product.name}
                 className="h-full w-full object-cover object-center"
               />
