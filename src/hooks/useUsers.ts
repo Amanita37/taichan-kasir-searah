@@ -1,7 +1,7 @@
-
 import { useState } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { type User, type UserFormData, getRoleName } from "@/types/user";
+import { Key } from "lucide-react";
 
 // Temporary user data (would come from Supabase)
 const DEMO_USERS = [
@@ -41,6 +41,7 @@ const DEMO_USERS = [
 
 export const useUsers = () => {
   const [users, setUsers] = useState(DEMO_USERS);
+  const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -51,13 +52,20 @@ export const useUsers = () => {
       getRoleName(user.role).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const validateForm = (formData: UserFormData) => {
-    if (!formData.name || !formData.email || !formData.role || (!formData.password && !formData.id)) {
+  const validateForm = (formData: UserFormData): boolean => {
+    if (!formData.name || !formData.email || !formData.role) {
       toast({
         title: "Validasi Gagal",
-        description: formData.id
-          ? "Nama, email, dan role harus diisi"
-          : "Semua field harus diisi",
+        description: "Nama, email, dan role harus diisi",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    if (!formData.password && !formData) {
+      toast({
+        title: "Validasi Gagal",
+        description: "Password harus diisi untuk pengguna baru",
         variant: "destructive",
       });
       return false;
@@ -76,67 +84,104 @@ export const useUsers = () => {
     return true;
   };
 
-  const addUser = (formData: UserFormData) => {
+  const addUser = async (formData: UserFormData): Promise<boolean> => {
     if (!validateForm(formData)) return false;
-
-    const newUser = {
-      id: users.length + 1,
-      name: formData.name,
-      email: formData.email,
-      role: formData.role,
-      lastLogin: null,
-      isActive: true,
-    };
-
-    setUsers((prev) => [...prev, newUser]);
     
-    toast({
-      title: "Pengguna Ditambahkan",
-      description: `${formData.name} berhasil ditambahkan sebagai ${getRoleName(formData.role)}.`,
-    });
+    setIsLoading(true);
+    try {
+      const newUser = {
+        id: users.length + 1,
+        name: formData.name,
+        email: formData.email,
+        role: formData.role,
+        lastLogin: null,
+        isActive: true,
+      };
 
-    return true;
+      // Optimistic update
+      setUsers((prev) => [...prev, newUser]);
+      
+      toast({
+        title: "Pengguna Ditambahkan",
+        description: `${formData.name} berhasil ditambahkan sebagai ${getRoleName(formData.role)}.`,
+      });
+      
+      return true;
+    } catch (error) {
+      toast({
+        title: "Gagal Menambahkan Pengguna",
+        description: "Terjadi kesalahan saat menambahkan pengguna",
+        variant: "destructive",
+      });
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const updateUser = (userId: number, formData: UserFormData) => {
+  const updateUser = async (userId: number, formData: UserFormData): Promise<boolean> => {
     if (!validateForm(formData)) return false;
 
-    setUsers((prev) =>
-      prev.map((user) => {
-        if (user.id === userId) {
-          return {
-            ...user,
-            name: formData.name,
-            email: formData.email,
-            role: formData.role,
-          };
-        }
-        return user;
-      })
-    );
-    
-    toast({
-      title: "Pengguna Diperbarui",
-      description: `Informasi ${formData.name} berhasil diperbarui.`,
-    });
+    setIsLoading(true);
+    try {
+      // Optimistic update
+      setUsers((prev) =>
+        prev.map((user) => {
+          if (user.id === userId) {
+            return {
+              ...user,
+              name: formData.name,
+              email: formData.email,
+              role: formData.role,
+            };
+          }
+          return user;
+        })
+      );
 
-    return true;
+      toast({
+        title: "Pengguna Diperbarui",
+        description: `Informasi ${formData.name} berhasil diperbarui.`,
+      });
+
+      return true;
+    } catch (error) {
+      toast({
+        title: "Gagal Memperbarui Pengguna",
+        description: "Terjadi kesalahan saat memperbarui pengguna",
+        variant: "destructive",
+      });
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const toggleUserStatus = (id: number) => {
-    setUsers((prev) =>
-      prev.map((user) => {
-        if (user.id === id) {
-          const newStatus = !user.isActive;
-          toast({
-            title: newStatus ? "Pengguna Diaktifkan" : "Pengguna Dinonaktifkan",
-            description: `${user.name} telah ${newStatus ? "diaktifkan" : "dinonaktifkan"}.`,
-          });
-          return { ...user, isActive: newStatus };
-        }
-        return user;
-      })
-    );
+  const toggleUserStatus = async (id: number): Promise<void> => {
+    setIsLoading(true);
+    try {
+      setUsers((prev) =>
+        prev.map((user) => {
+          if (user.id === id) {
+            const newStatus = !user.isActive;
+            toast({
+              title: newStatus ? "Pengguna Diaktifkan" : "Pengguna Dinonaktifkan",
+              description: `${user.name} telah ${newStatus ? "diaktifkan" : "dinonaktifkan"}.`,
+            });
+            return { ...user, isActive: newStatus };
+          }
+          return user;
+        })
+      );
+    } catch (error) {
+      toast({
+        title: "Gagal Mengubah Status",
+        description: "Terjadi kesalahan saat mengubah status pengguna",
+        variant: "destructive",
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return {
@@ -146,5 +191,6 @@ export const useUsers = () => {
     addUser,
     updateUser,
     toggleUserStatus,
+    isLoading,
   };
 };

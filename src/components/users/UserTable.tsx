@@ -10,14 +10,52 @@ import {
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { type User, getRoleName, formatDate } from "@/types/user";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface UserTableProps {
   users: User[];
   onEditUser: (user: User) => void;
   onToggleStatus: (id: number) => void;
+  isLoading?: boolean;
 }
 
-const UserTable: React.FC<UserTableProps> = ({ users, onEditUser, onToggleStatus }) => {
+const UserTable: React.FC<UserTableProps> = ({ 
+  users, 
+  onEditUser, 
+  onToggleStatus,
+  isLoading = false 
+}) => {
+  if (isLoading) {
+    return (
+      <div className="rounded-md border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Nama</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Peran</TableHead>
+              <TableHead>Login Terakhir</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Aksi</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {[...Array(3)].map((_, i) => (
+              <TableRow key={i}>
+                <TableCell><Skeleton className="h-4 w-[200px]" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-[200px]" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-[150px]" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-[80px]" /></TableCell>
+                <TableCell><Skeleton className="h-4 w-[100px]" /></TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-md border shadow">
       <div className="overflow-x-auto">
@@ -73,7 +111,10 @@ const UserTable: React.FC<UserTableProps> = ({ users, onEditUser, onToggleStatus
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={6} className="text-center py-6 text-gray-500">
+                <TableCell 
+                  colSpan={6} 
+                  className="text-center py-6 text-gray-500"
+                >
                   Tidak ada data pengguna yang ditemukan
                 </TableCell>
               </TableRow>

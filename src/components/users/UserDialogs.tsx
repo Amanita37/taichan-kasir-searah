@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -7,6 +7,7 @@ import {
   DialogTitle,
   DialogFooter,
   DialogClose,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import UserForm from "./UserForm";
@@ -18,8 +19,8 @@ interface UserDialogsProps {
   currentUser: User | null;
   onCloseAddDialog: () => void;
   onCloseEditDialog: () => void;
-  onAddUser: (formData: UserFormData) => void;
-  onUpdateUser: (formData: UserFormData) => void;
+  onAddUser: (formData: UserFormData) => Promise<boolean>;
+  onUpdateUser: (formData: UserFormData) => Promise<boolean>;
 }
 
 const UserDialogs = ({
@@ -45,19 +46,28 @@ const UserDialogs = ({
     }));
   };
 
-  const handleAddUser = () => {
-    if (onAddUser(formData)) {
+  const handleAddUser = async () => {
+    const success = await onAddUser(formData);
+    if (success) {
       onCloseAddDialog();
       setFormData({ name: "", email: "", password: "", role: "" });
     }
   };
 
-  const handleUpdateUser = () => {
-    if (onUpdateUser(formData)) {
+  const handleUpdateUser = async () => {
+    const success = await onUpdateUser(formData);
+    if (success) {
       onCloseEditDialog();
       setFormData({ name: "", email: "", password: "", role: "" });
     }
   };
+
+  const handleKeyPress = useCallback((e: KeyboardEvent) => {
+    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+      if (isAddDialogOpen) handleAddUser();
+      if (isEditDialogOpen) handleUpdateUser();
+    }
+  }, [isAddDialogOpen, isEditDialogOpen]);
 
   return (
     <>
@@ -65,6 +75,9 @@ const UserDialogs = ({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Tambah Pengguna Baru</DialogTitle>
+            <DialogDescription>
+              Tekan Ctrl+Enter untuk menyimpan
+            </DialogDescription>
           </DialogHeader>
           <UserForm formData={formData} onChange={handleFormChange} />
           <DialogFooter className="flex space-x-2 justify-end">
@@ -80,6 +93,9 @@ const UserDialogs = ({
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Pengguna</DialogTitle>
+            <DialogDescription>
+              Tekan Ctrl+Enter untuk menyimpan
+            </DialogDescription>
           </DialogHeader>
           <UserForm formData={formData} isEdit onChange={handleFormChange} />
           <DialogFooter className="flex space-x-2 justify-end">
