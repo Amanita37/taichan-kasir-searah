@@ -1,17 +1,14 @@
-
 import { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Search } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
 import ProductGrid from "@/components/pos/ProductGrid";
 import Cart from "@/components/pos/Cart";
 import PaymentDialog from "@/components/pos/PaymentDialog";
-import { type Product, type CartItem } from "@/types/pos";
+import ProductSearch from "@/components/pos/ProductSearch";
+import { useCart } from "@/hooks/useCart";
+import { type Product } from "@/types/pos";
 import ErrorBoundary from "@/components/ErrorBoundary";
 
-// Temporary product data modified to match Product type
 const DEMO_PRODUCTS: Product[] = [
   { id: "1", name: "Beras 5kg", price: 65000, category: "Bahan Pokok", image: "/placeholder.svg", stock: 100, barcode: "8998989300019" },
   { id: "2", name: "Minyak Goreng 2L", price: 38000, category: "Bahan Pokok", image: "/placeholder.svg", stock: 75, barcode: "8998989300026" },
@@ -30,64 +27,29 @@ const CATEGORIES = ["Semua", "Bahan Pokok", "Segar", "Minuman", "Makanan"];
 const POS = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [category, setCategory] = useState("Semua");
-  const [cart, setCart] = useState<CartItem[]>([]);
-  const [customerName, setCustomerName] = useState("");
-  const [cashAmount, setCashAmount] = useState<number | "">("");
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const { toast } = useToast();
+  
+  const {
+    cart,
+    customerName,
+    cashAmount,
+    setCustomerName,
+    setCashAmount,
+    addToCart,
+    handleQuantityChange,
+    updateQuantity,
+    removeFromCart,
+    calculateTotal,
+    clearCart,
+    handleCheckout,
+  } = useCart();
 
   const filteredProducts = DEMO_PRODUCTS.filter(
     (product) =>
       (category === "Semua" || product.category === category) &&
       product.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
-
-  const addToCart = (product: Product) => {
-    setCart((currentCart) => {
-      const itemExists = currentCart.find((item) => item.id === product.id);
-      if (itemExists) {
-        return currentCart.map((item) =>
-          item.id === product.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
-        );
-      }
-      return [...currentCart, { id: product.id, name: product.name, price: product.price, quantity: 1 }];
-    });
-  };
-
-  const handleQuantityChange = (productId: string, value: string) => {
-    const quantity = parseInt(value);
-    if (!isNaN(quantity) && quantity >= 0) {
-      setCart((currentCart) =>
-        currentCart
-          .map((item) =>
-            item.id === productId ? { ...item, quantity } : item
-          )
-          .filter((item) => item.quantity > 0)
-      );
-    }
-  };
-
-  const updateQuantity = (productId: string, change: number) => {
-    setCart((currentCart) =>
-      currentCart
-        .map((item) =>
-          item.id === productId
-            ? { ...item, quantity: Math.max(0, item.quantity + change) }
-            : item
-        )
-        .filter((item) => item.quantity > 0)
-    );
-  };
-
-  const removeFromCart = (productId: string) => {
-    setCart((currentCart) => currentCart.filter((item) => item.id !== productId));
-  };
-
-  const calculateTotal = () => {
-    return cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  };
 
   const handlePrintReceipt = () => {
     toast({
@@ -96,47 +58,26 @@ const POS = () => {
     });
   };
 
-  const openPaymentDialog = () => {
-    if (cart.length === 0) {
+  const handleConfirmPayment = () => {
+    if (handleCheckout()) {
       toast({
-        title: "Keranjang Kosong",
-        description: "Silakan tambahkan produk ke keranjang terlebih dahulu.",
-        variant: "destructive",
+        title: "Transaksi Berhasil",
+        description: `Total: ${new Intl.NumberFormat("id-ID", {
+          style: "currency",
+          currency: "IDR",
+          minimumFractionDigits: 0,
+        }).format(calculateTotal())}. Kembalian: ${new Intl.NumberFormat("id-ID", {
+          style: "currency",
+          currency: "IDR",
+          minimumFractionDigits: 0,
+        }).format(
+          Number(cashAmount) - calculateTotal()
+        )}`,
       });
-      return;
+
+      clearCart();
+      setIsPaymentDialogOpen(false);
     }
-    setIsPaymentDialogOpen(true);
-  };
-
-  const handleCheckout = () => {
-    if (typeof cashAmount !== "number" || cashAmount < calculateTotal()) {
-      toast({
-        title: "Pembayaran Tidak Mencukupi",
-        description: "Jumlah uang yang dibayarkan kurang dari total belanja.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    toast({
-      title: "Transaksi Berhasil",
-      description: `Total: ${new Intl.NumberFormat("id-ID", {
-        style: "currency",
-        currency: "IDR",
-        minimumFractionDigits: 0,
-      }).format(calculateTotal())}. Kembalian: ${new Intl.NumberFormat("id-ID", {
-        style: "currency",
-        currency: "IDR",
-        minimumFractionDigits: 0,
-      }).format(
-        cashAmount - calculateTotal()
-      )}`,
-    });
-
-    setCart([]);
-    setCustomerName("");
-    setCashAmount("");
-    setIsPaymentDialogOpen(false);
   };
 
   return (
@@ -144,32 +85,13 @@ const POS = () => {
       <DashboardLayout>
         <div className="flex flex-col h-[calc(100vh-10rem)] md:flex-row md:gap-6">
           <div className="flex-1 overflow-hidden flex flex-col">
-            <div className="flex items-center gap-3 mb-4">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
-                <Input
-                  placeholder="Cari produk..."
-                  className="pl-9"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-              </div>
-            </div>
-
-            <Tabs defaultValue="Semua" className="mb-4">
-              <TabsList className="w-full overflow-x-auto flex flex-nowrap justify-start">
-                {CATEGORIES.map((cat) => (
-                  <TabsTrigger
-                    key={cat}
-                    value={cat}
-                    onClick={() => setCategory(cat)}
-                    className="whitespace-nowrap"
-                  >
-                    {cat}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
-            </Tabs>
+            <ProductSearch
+              searchQuery={searchQuery}
+              category={category}
+              onSearchChange={setSearchQuery}
+              onCategoryChange={setCategory}
+              categories={CATEGORIES}
+            />
 
             <div className="flex-1 overflow-y-auto pb-4">
               {filteredProducts.length > 0 ? (
@@ -198,7 +120,7 @@ const POS = () => {
             onUpdateQuantity={updateQuantity}
             onRemoveFromCart={removeFromCart}
             onPrintReceipt={handlePrintReceipt}
-            onCheckout={openPaymentDialog}
+            onCheckout={() => setIsPaymentDialogOpen(true)}
             calculateTotal={calculateTotal}
           />
         </div>
@@ -210,7 +132,7 @@ const POS = () => {
           customerName={customerName}
           cashAmount={cashAmount}
           total={calculateTotal()}
-          onConfirm={handleCheckout}
+          onConfirm={handleConfirmPayment}
         />
       </DashboardLayout>
     </ErrorBoundary>
