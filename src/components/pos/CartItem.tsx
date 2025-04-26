@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Trash2, Plus, Minus } from "lucide-react";
@@ -39,6 +40,10 @@ const CartItem = ({
           onChange={(e) => onQuantityChange(id, e.target.value)}
           className="w-14 h-7 text-center p-1"
           min="1"
+          style={{ 
+            appearance: "textfield",
+            MozAppearance: "textfield",
+          }}
         />
         <Button
           size="icon"

@@ -3,8 +3,6 @@ import { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Table,
   TableBody,
@@ -18,239 +16,329 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-  DialogClose,
 } from "@/components/ui/dialog";
-import { Search, Clock, Calendar, FileText } from "lucide-react";
+import { Search, Calendar, FileText, Printer } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
+import { format } from "date-fns";
+import { DatePickerWithRange } from "@/components/ui/date-range-picker";
+import { DateRange } from "react-day-picker";
+import { useTransactions } from "@/hooks/useTransactions";
+import { formatCurrency } from "@/lib/utils";
+import { Pagination } from "@/components/ui/pagination";
+import ReceiptViewerDialog from "@/components/receipt/ReceiptViewerDialog";
+import { useSettings } from "@/hooks/useSettings";
 
-// Demo shift data (would come from Supabase in production)
-const DEMO_SHIFTS = [
-  {
-    id: "SHIFT-001",
-    staffName: "John Doe",
-    startTime: "2025-04-24T08:00:00",
-    endTime: "2025-04-24T16:00:00",
-    status: "closed",
-    startingCash: 500000,
-    endingCash: 1250000,
-    totalSales: 750000,
-    totalTransactions: 15,
-  },
-  {
-    id: "SHIFT-002",
-    staffName: "Jane Smith",
-    startTime: "2025-04-24T16:00:00",
-    endTime: "2025-04-24T23:00:00",
-    status: "closed",
-    startingCash: 1000000,
-    endingCash: 1850000,
-    totalSales: 850000,
-    totalTransactions: 18,
-  },
-  {
-    id: "SHIFT-003",
-    staffName: "John Doe",
-    startTime: "2025-04-25T08:00:00",
-    endTime: null,
-    status: "active",
-    startingCash: 500000,
-    endingCash: null,
-    totalSales: 350000,
-    totalTransactions: 7,
-  },
-];
-
-// Format date to locale string
-const formatDate = (dateString: string | null) => {
-  if (!dateString) return "Belum selesai";
-  return new Date(dateString).toLocaleString("id-ID", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-};
-
-const formatCurrency = (amount: number | null): string => {
-  if (amount === null) return "-";
-  return new Intl.NumberFormat("id-ID", {
-    style: "currency",
-    currency: "IDR",
-    minimumFractionDigits: 0,
-  }).format(amount);
-};
-
-const Shift = () => {
-  const [shifts, setShifts] = useState(DEMO_SHIFTS);
+const DailySaleReport = () => {
   const [searchQuery, setSearchQuery] = useState("");
-  const [isStartShiftDialogOpen, setIsStartShiftDialogOpen] = useState(false);
-  const [isEndShiftDialogOpen, setIsEndShiftDialogOpen] = useState(false);
-  const [isViewShiftDialogOpen, setIsViewShiftDialogOpen] = useState(false);
-  const [selectedShift, setSelectedShift] = useState<typeof DEMO_SHIFTS[0] | null>(null);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: new Date(),
+    to: new Date(),
+  });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [currentTransaction, setCurrentTransaction] = useState<any | null>(null);
+  const [transactionItems, setTransactionItems] = useState<any[]>([]);
+  const [isLoadingItems, setIsLoadingItems] = useState(false);
+  
   const { toast } = useToast();
+  const { transactions, isLoadingTransactions, getTransactionItems } = useTransactions();
+  const { settings } = useSettings();
   
-  const [startShiftData, setStartShiftData] = useState({
-    staffName: "",
-    startingCash: "",
-    notes: ""
-  });
+  const itemsPerPage = 100;
   
-  const [endShiftData, setEndShiftData] = useState({
-    endingCash: "",
-    notes: ""
-  });
-
-  const hasActiveShift = shifts.some(shift => shift.status === "active");
-
-  const filteredShifts = shifts.filter(
-    (shift) =>
-      shift.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      shift.staffName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const handleStartShift = () => {
-    // Simple validation
-    if (!startShiftData.staffName || !startShiftData.startingCash) {
-      toast({
-        title: "Validasi Gagal",
-        description: "Nama staff dan kas awal harus diisi",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Create new shift (would connect to Supabase in production)
-    const newShift = {
-      id: `SHIFT-00${shifts.length + 1}`,
-      staffName: startShiftData.staffName,
-      startTime: new Date().toISOString(),
-      endTime: null,
-      status: "active",
-      startingCash: parseFloat(startShiftData.startingCash),
-      endingCash: null,
-      totalSales: 0,
-      totalTransactions: 0,
-    };
-
-    setShifts([...shifts, newShift]);
-    setIsStartShiftDialogOpen(false);
-    setStartShiftData({
-      staffName: "",
-      startingCash: "",
-      notes: ""
-    });
-    
-    toast({
-      title: "Shift Dimulai",
-      description: `Shift untuk ${startShiftData.staffName} berhasil dimulai.`,
-    });
-  };
-
-  const handleEndShift = () => {
-    // Simple validation
-    if (!endShiftData.endingCash) {
-      toast({
-        title: "Validasi Gagal",
-        description: "Kas akhir harus diisi",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Update active shift (would connect to Supabase in production)
-    const updatedShifts = shifts.map(shift => {
-      if (shift.status === "active") {
-        return {
-          ...shift,
-          endTime: new Date().toISOString(),
-          endingCash: parseFloat(endShiftData.endingCash),
-          status: "closed",
-          // In a real app, totalSales would be calculated from transactions
-        };
+  // Filter transactions based on date range and search query
+  const filteredTransactions = transactions ? transactions.filter(
+    (transaction) => {
+      // Date filter
+      const transactionDate = new Date(transaction.created_at);
+      let dateMatch = true;
+      if (dateRange?.from) {
+        const fromDate = new Date(dateRange.from);
+        fromDate.setHours(0, 0, 0, 0);
+        dateMatch = dateMatch && transactionDate >= fromDate;
       }
-      return shift;
-    });
-
-    setShifts(updatedShifts);
-    setIsEndShiftDialogOpen(false);
-    setEndShiftData({
-      endingCash: "",
-      notes: ""
-    });
+      if (dateRange?.to) {
+        const toDate = new Date(dateRange.to);
+        toDate.setHours(23, 59, 59, 999);
+        dateMatch = dateMatch && transactionDate <= toDate;
+      }
+      
+      // Search filter
+      const searchMatch = 
+        transaction.transaction_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (transaction.customer_name && transaction.customer_name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        transaction.cashier_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        transaction.payment_method.toLowerCase().includes(searchQuery.toLowerCase());
+        
+      return dateMatch && searchMatch;
+    }
+  ) : [];
+  
+  // Calculate pagination
+  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage);
+  const paginatedTransactions = filteredTransactions.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
+  
+  // Calculate report summary
+  const reportSummary = {
+    totalSales: filteredTransactions.reduce((sum, tx) => sum + Number(tx.total), 0),
+    totalTransactions: filteredTransactions.length,
+    cashPayments: filteredTransactions.filter(tx => tx.payment_method === 'Cash').reduce((sum, tx) => sum + Number(tx.total), 0),
+    nonCashPayments: filteredTransactions.filter(tx => tx.payment_method !== 'Cash').reduce((sum, tx) => sum + Number(tx.total), 0)
+  };
+  
+  const viewTransaction = async (transaction: any) => {
+    setCurrentTransaction(transaction);
+    setIsLoadingItems(true);
     
-    toast({
-      title: "Shift Berakhir",
-      description: "Shift berhasil ditutup.",
-    });
+    try {
+      const items = await getTransactionItems(transaction.id);
+      setTransactionItems(items);
+      setIsViewDialogOpen(true);
+    } catch (error) {
+      console.error("Error fetching transaction items:", error);
+      toast({
+        title: "Gagal",
+        description: "Tidak dapat mengambil detail transaksi",
+        variant: "destructive",
+        duration: 1000,
+      });
+    } finally {
+      setIsLoadingItems(false);
+    }
   };
 
-  const viewShiftDetails = (shift: typeof DEMO_SHIFTS[0]) => {
-    setSelectedShift(shift);
-    setIsViewShiftDialogOpen(true);
+  const handlePrint = () => {
+    try {
+      const printWindow = window.open('', '', 'height=600,width=800');
+      if (!printWindow) {
+        toast({
+          title: "Gagal Mencetak",
+          description: "Popup blocker mungkin mencegah pencetakan. Mohon izinkan pop-up untuk situs ini.",
+          variant: "destructive",
+          duration: 1000,
+        });
+        return;
+      }
+      
+      const receiptWidth = settings?.receipt_width || 48;
+      
+      printWindow.document.write(`
+        <html>
+          <head>
+            <title>Struk Pembayaran</title>
+            <style>
+              body {
+                font-family: 'Courier New', monospace;
+                font-size: 12px;
+                padding: 5mm;
+                margin: 0;
+                width: ${receiptWidth}mm;
+              }
+              .receipt {
+                width: 100%;
+                max-width: 100%;
+              }
+              .header {
+                text-align: center;
+                margin-bottom: 10px;
+              }
+              .title {
+                font-size: 14px;
+                font-weight: bold;
+              }
+              .divider {
+                border-top: 1px dashed #000;
+                margin: 10px 0;
+              }
+              .item {
+                display: flex;
+                justify-content: space-between;
+              }
+              .item-detail {
+                display: flex;
+                flex-direction: column;
+              }
+              .total {
+                font-weight: bold;
+                margin-top: 10px;
+              }
+              .footer {
+                text-align: center;
+                margin-top: 10px;
+                font-size: 10px;
+              }
+              @media print {
+                body {
+                  width: ${receiptWidth}mm;
+                  font-weight: bold;
+                }
+                @page {
+                  margin: 0;
+                  size: ${receiptWidth}mm auto;
+                }
+              }
+            </style>
+          </head>
+          <body>
+            <div class="receipt">
+              <div class="header">
+                <div class="title">${settings?.store_name || "Taichan Searah"}</div>
+                <div class="text-sm">${settings?.store_address || "Jl. Contoh No. 123, Jakarta"}</div>
+                <div class="text-sm">${settings?.store_phone || "(021) 123-4567"}</div>
+              </div>
+              
+              <div class="divider"></div>
+              
+              <div class="text-sm">
+                <div class="flex justify-between">
+                  <span>No. Transaksi:</span>
+                  <span>${currentTransaction?.transaction_number}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>Tanggal:</span>
+                  <span>${format(new Date(currentTransaction?.created_at || new Date()), 'dd MMM yyyy HH:mm')}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>Kasir:</span>
+                  <span>${currentTransaction?.cashier_name}</span>
+                </div>
+                ${currentTransaction?.customer_name ? `
+                <div class="flex justify-between">
+                  <span>Pelanggan:</span>
+                  <span>${currentTransaction?.customer_name}</span>
+                </div>
+                ` : ''}
+              </div>
+              
+              <div class="divider"></div>
+              
+              <div class="items space-y-2">
+                ${transactionItems.map((item) => `
+                  <div class="flex justify-between">
+                    <div>
+                      <div>${item.product_name}</div>
+                      <div class="text-sm">${formatCurrency(item.price)} x ${item.quantity}</div>
+                    </div>
+                    <div class="font-medium">
+                      ${formatCurrency(item.total)}
+                    </div>
+                  </div>
+                `).join('')}
+              </div>
+              
+              <div class="divider"></div>
+              
+              <div class="totals space-y-1">
+                <div class="flex justify-between">
+                  <span>Total:</span>
+                  <span class="font-bold">${formatCurrency(currentTransaction?.total)}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>Pembayaran (${currentTransaction?.payment_method}):</span>
+                  <span>${formatCurrency(currentTransaction?.payment_amount)}</span>
+                </div>
+                <div class="flex justify-between">
+                  <span>Kembalian:</span>
+                  <span>${formatCurrency(Number(currentTransaction?.payment_amount) - Number(currentTransaction?.total))}</span>
+                </div>
+              </div>
+              
+              <div class="divider"></div>
+              
+              <div class="footer text-center text-sm">
+                <p>${settings?.receipt_footer || "Terima kasih atas kunjungan Anda!"}</p>
+              </div>
+            </div>
+          </body>
+          <script>
+            setTimeout(function() {
+              try {
+                window.print();
+                window.close();
+              } catch(e) {
+                console.error("Print error:", e);
+                window.close();
+              }
+            }, 500);
+          </script>
+        </html>
+      `);
+      
+      printWindow.document.close();
+      
+      toast({
+        title: "Cetak Struk",
+        description: "Struk sedang dicetak.",
+        duration: 1000,
+      });
+      
+    } catch (error) {
+      console.error("Print error:", error);
+      toast({
+        title: "Gagal Mencetak",
+        description: "Terjadi kesalahan saat mencetak struk.",
+        variant: "destructive",
+        duration: 1000,
+      });
+    }
   };
 
   return (
     <DashboardLayout>
       <div className="space-y-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <h1 className="text-2xl font-semibold">Manajemen Shift</h1>
-          <div className="flex flex-col gap-2 sm:flex-row">
-            <Button 
-              className="pos-btn flex items-center gap-2"
-              onClick={() => setIsStartShiftDialogOpen(true)}
-              disabled={hasActiveShift}
-            >
-              <Clock className="h-4 w-4" />
-              Mulai Shift Baru
-            </Button>
-            <Button 
-              className="pos-btn-secondary flex items-center gap-2"
-              onClick={() => setIsEndShiftDialogOpen(true)}
-              disabled={!hasActiveShift}
-            >
-              <FileText className="h-4 w-4" />
-              Tutup Shift Aktif
-            </Button>
-          </div>
+          <h1 className="text-2xl font-semibold">Laporan Penjualan Harian</h1>
         </div>
 
-        {/* Active Shift Status */}
-        {hasActiveShift && (
-          <Card className="bg-primary/10 border-primary">
-            <CardContent className="p-4">
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+        {/* Report Summary Card */}
+        <Card className="bg-primary/10 border-primary">
+          <CardContent className="p-4">
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+              <div>
+                <h3 className="font-semibold text-lg flex items-center">
+                  <Calendar className="h-5 w-5 mr-2 text-primary" />
+                  Ringkasan Laporan
+                </h3>
+                <p className="text-sm">
+                  {dateRange?.from ? format(dateRange.from, 'dd MMM yyyy') : ''} 
+                  {dateRange?.to ? ` - ${format(dateRange.to, 'dd MMM yyyy')}` : ''}
+                </p>
+              </div>
+              <div className="mt-3 md:mt-0 grid grid-cols-2 gap-4">
                 <div>
-                  <h3 className="font-semibold text-lg flex items-center">
-                    <Clock className="h-5 w-5 mr-2 text-primary" />
-                    Shift Aktif
-                  </h3>
-                  <p className="text-sm">
-                    {shifts.find(s => s.status === "active")?.staffName} - 
-                    Mulai: {formatDate(shifts.find(s => s.status === "active")?.startTime || "")}
-                  </p>
+                  <p className="text-sm font-medium">Total Transaksi:</p>
+                  <p className="text-lg font-semibold">{reportSummary.totalTransactions}</p>
                 </div>
-                <div className="mt-3 md:mt-0">
-                  <p className="text-sm">
-                    <span className="font-medium">Transaksi:</span> {shifts.find(s => s.status === "active")?.totalTransactions}
-                  </p>
-                  <p className="text-sm">
-                    <span className="font-medium">Penjualan: </span> 
-                    {formatCurrency(shifts.find(s => s.status === "active")?.totalSales || 0)}
-                  </p>
+                <div>
+                  <p className="text-sm font-medium">Total Penjualan: </p>
+                  <p className="text-lg font-semibold text-green-600">{formatCurrency(reportSummary.totalSales)}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Pembayaran Cash:</p>
+                  <p>{formatCurrency(reportSummary.cashPayments)}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium">Pembayaran Non-Cash:</p>
+                  <p>{formatCurrency(reportSummary.nonCashPayments)}</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        )}
+            </div>
+          </CardContent>
+        </Card>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col md:flex-row gap-4 items-start">
+          <div className="w-full md:w-auto">
+            <DatePickerWithRange date={dateRange} setDate={setDateRange} />
+          </div>
+          
           <div className="relative flex-1">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
             <Input
-              placeholder="Cari shift berdasarkan ID atau staff..."
+              placeholder="Cari transaksi berdasarkan nomor, pelanggan, atau kasir..."
               className="pl-9"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -263,55 +351,47 @@ const Shift = () => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>ID Shift</TableHead>
-                  <TableHead>Staff</TableHead>
-                  <TableHead>Mulai</TableHead>
-                  <TableHead>Selesai</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Kas Awal</TableHead>
-                  <TableHead>Kas Akhir</TableHead>
-                  <TableHead>Total Penjualan</TableHead>
+                  <TableHead>No Transaksi</TableHead>
+                  <TableHead>Tanggal</TableHead>
+                  <TableHead>Kasir</TableHead>
+                  <TableHead>Pelanggan</TableHead>
+                  <TableHead>Total</TableHead>
+                  <TableHead>Metode Pembayaran</TableHead>
                   <TableHead className="text-right">Aksi</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredShifts.length > 0 ? (
-                  filteredShifts.map((shift) => (
-                    <TableRow key={shift.id}>
-                      <TableCell className="font-medium">{shift.id}</TableCell>
-                      <TableCell>{shift.staffName}</TableCell>
-                      <TableCell>{formatDate(shift.startTime)}</TableCell>
-                      <TableCell>{formatDate(shift.endTime)}</TableCell>
-                      <TableCell>
-                        <span
-                          className={`rounded px-2 py-1 text-xs font-semibold ${
-                            shift.status === "active"
-                              ? "bg-green-100 text-green-800"
-                              : "bg-blue-100 text-blue-800"
-                          }`}
-                        >
-                          {shift.status === "active" ? "Aktif" : "Ditutup"}
-                        </span>
-                      </TableCell>
-                      <TableCell>{formatCurrency(shift.startingCash)}</TableCell>
-                      <TableCell>{formatCurrency(shift.endingCash)}</TableCell>
-                      <TableCell>{formatCurrency(shift.totalSales)}</TableCell>
+                {isLoadingTransactions ? (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center py-6">
+                      Memuat data transaksi...
+                    </TableCell>
+                  </TableRow>
+                ) : paginatedTransactions.length > 0 ? (
+                  paginatedTransactions.map((transaction) => (
+                    <TableRow key={transaction.id}>
+                      <TableCell className="font-medium">{transaction.transaction_number}</TableCell>
+                      <TableCell>{format(new Date(transaction.created_at), 'dd MMM yyyy HH:mm')}</TableCell>
+                      <TableCell>{transaction.cashier_name}</TableCell>
+                      <TableCell>{transaction.customer_name || "-"}</TableCell>
+                      <TableCell>{formatCurrency(transaction.total)}</TableCell>
+                      <TableCell>{transaction.payment_method}</TableCell>
                       <TableCell className="text-right">
                         <Button
                           size="sm"
-                          variant="ghost"
-                          className="h-8"
-                          onClick={() => viewShiftDetails(shift)}
+                          variant="outline"
+                          className="gap-1 h-8"
+                          onClick={() => viewTransaction(transaction)}
                         >
-                          Detail
+                          <FileText className="h-4 w-4" /> Detail
                         </Button>
                       </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center py-6 text-gray-500">
-                      Tidak ada data shift yang ditemukan
+                    <TableCell colSpan={7} className="text-center py-6 text-gray-500">
+                      Tidak ada data transaksi yang ditemukan
                     </TableCell>
                   </TableRow>
                 )}
@@ -319,180 +399,49 @@ const Shift = () => {
             </Table>
           </div>
         </div>
+        
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <Pagination>
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-muted-foreground">
+                Halaman {currentPage} dari {totalPages}
+              </div>
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                >
+                  Sebelumnya
+                </Button>
+                <Button
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  Selanjutnya
+                </Button>
+              </div>
+            </div>
+          </Pagination>
+        )}
       </div>
 
-      {/* Start Shift Dialog */}
-      <Dialog open={isStartShiftDialogOpen} onOpenChange={setIsStartShiftDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Mulai Shift Baru</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="staffName">Nama Staff</Label>
-              <Input
-                id="staffName"
-                value={startShiftData.staffName}
-                onChange={(e) => setStartShiftData({...startShiftData, staffName: e.target.value})}
-                placeholder="Masukkan nama staff"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="startingCash">Kas Awal</Label>
-              <Input
-                id="startingCash"
-                type="number"
-                value={startShiftData.startingCash}
-                onChange={(e) => setStartShiftData({...startShiftData, startingCash: e.target.value})}
-                placeholder="0"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="notes">Catatan</Label>
-              <Textarea
-                id="notes"
-                value={startShiftData.notes}
-                onChange={(e) => setStartShiftData({...startShiftData, notes: e.target.value})}
-                placeholder="Catatan tambahan (opsional)"
-              />
-            </div>
-          </div>
-          <DialogFooter className="flex space-x-2 justify-end">
-            <DialogClose asChild>
-              <Button variant="outline">Batal</Button>
-            </DialogClose>
-            <Button onClick={handleStartShift} className="bg-primary hover:bg-primary-dark text-secondary-foreground">Mulai Shift</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* End Shift Dialog */}
-      <Dialog open={isEndShiftDialogOpen} onOpenChange={setIsEndShiftDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Tutup Shift Aktif</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            {shifts.find(s => s.status === "active") && (
-              <div className="bg-gray-50 p-3 rounded-md">
-                <p className="font-medium">Shift: {shifts.find(s => s.status === "active")?.id}</p>
-                <p className="text-sm">Staff: {shifts.find(s => s.status === "active")?.staffName}</p>
-                <p className="text-sm">Mulai: {formatDate(shifts.find(s => s.status === "active")?.startTime || "")}</p>
-                <p className="text-sm">Kas Awal: {formatCurrency(shifts.find(s => s.status === "active")?.startingCash || 0)}</p>
-              </div>
-            )}
-            <div className="space-y-2">
-              <Label htmlFor="endingCash">Kas Akhir</Label>
-              <Input
-                id="endingCash"
-                type="number"
-                value={endShiftData.endingCash}
-                onChange={(e) => setEndShiftData({...endShiftData, endingCash: e.target.value})}
-                placeholder="0"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="endNotes">Catatan</Label>
-              <Textarea
-                id="endNotes"
-                value={endShiftData.notes}
-                onChange={(e) => setEndShiftData({...endShiftData, notes: e.target.value})}
-                placeholder="Catatan tambahan (opsional)"
-              />
-            </div>
-          </div>
-          <DialogFooter className="flex space-x-2 justify-end">
-            <DialogClose asChild>
-              <Button variant="outline">Batal</Button>
-            </DialogClose>
-            <Button onClick={handleEndShift} className="bg-primary hover:bg-primary-dark text-secondary-foreground">Tutup Shift</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* View Shift Dialog */}
-      <Dialog open={isViewShiftDialogOpen} onOpenChange={setIsViewShiftDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>Detail Shift</DialogTitle>
-          </DialogHeader>
-          {selectedShift && (
-            <div className="py-4 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500">ID Shift</p>
-                  <p className="font-medium">{selectedShift.id}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Status</p>
-                  <span
-                    className={`inline-block rounded px-2 py-1 text-xs font-semibold ${
-                      selectedShift.status === "active"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-blue-100 text-blue-800"
-                    }`}
-                  >
-                    {selectedShift.status === "active" ? "Aktif" : "Ditutup"}
-                  </span>
-                </div>
-              </div>
-              
-              <div>
-                <p className="text-sm text-gray-500">Staff</p>
-                <p className="font-medium">{selectedShift.staffName}</p>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500">Waktu Mulai</p>
-                  <p>{formatDate(selectedShift.startTime)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Waktu Selesai</p>
-                  <p>{formatDate(selectedShift.endTime)}</p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500">Kas Awal</p>
-                  <p className="font-medium">{formatCurrency(selectedShift.startingCash)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Kas Akhir</p>
-                  <p className="font-medium">{formatCurrency(selectedShift.endingCash)}</p>
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-gray-500">Total Penjualan</p>
-                  <p className="font-medium text-green-600">{formatCurrency(selectedShift.totalSales)}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-500">Total Transaksi</p>
-                  <p className="font-medium">{selectedShift.totalTransactions}</p>
-                </div>
-              </div>
-              
-              {selectedShift.status === "closed" && (
-                <div>
-                  <p className="text-sm text-gray-500">Selisih Kas</p>
-                  <p className={`font-medium ${
-                    (selectedShift.endingCash || 0) - selectedShift.startingCash - selectedShift.totalSales === 0
-                      ? "text-green-600"
-                      : "text-red-600"
-                  }`}>
-                    {formatCurrency((selectedShift.endingCash || 0) - selectedShift.startingCash - selectedShift.totalSales)}
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Receipt Viewer Dialog */}
+      <ReceiptViewerDialog
+        open={isViewDialogOpen}
+        onOpenChange={setIsViewDialogOpen}
+        transaction={currentTransaction}
+        transactionItems={transactionItems}
+        isLoading={isLoadingItems}
+        settings={settings}
+        onPrint={handlePrint}
+      />
     </DashboardLayout>
   );
 };
 
-export default Shift;
+export default DailySaleReport;

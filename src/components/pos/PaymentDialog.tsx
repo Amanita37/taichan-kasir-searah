@@ -10,6 +10,13 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { type PaymentDialogProps } from "@/types/pos";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
 
 const formatCurrency = (amount: number): string => {
   return new Intl.NumberFormat("id-ID", {
@@ -27,6 +34,8 @@ const PaymentDialog = ({
   cashAmount,
   total,
   onConfirm,
+  paymentMethod = "Cash",
+  onPaymentMethodChange,
 }: PaymentDialogProps) => {
   const calculateChange = () => {
     if (typeof cashAmount !== "number" || cashAmount < total) {
@@ -61,6 +70,21 @@ const PaymentDialog = ({
                 <span>{formatCurrency(item.price * item.quantity)}</span>
               </div>
             ))}
+          </div>
+          
+          <div className="space-y-3">
+            <h3 className="font-medium">Metode Pembayaran:</h3>
+            <Select value={paymentMethod} onValueChange={onPaymentMethodChange}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="Pilih metode pembayaran" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Cash">Cash</SelectItem>
+                <SelectItem value="Debit">Kartu Debit</SelectItem>
+                <SelectItem value="Credit">Kartu Kredit</SelectItem>
+                <SelectItem value="QRIS">QRIS</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           
           <div className="border-t pt-2">

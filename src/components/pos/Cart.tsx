@@ -1,5 +1,14 @@
+
+import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
 import { Receipt } from "lucide-react";
 import CartItem from "./CartItem";
 import { type CartProps } from "@/types/pos";
@@ -25,6 +34,7 @@ const Cart = ({
   onCheckout,
   calculateTotal,
 }: CartProps) => {
+  const [paymentMethod, setPaymentMethod] = useState("Cash");
   const total = calculateTotal();
   const calculateChange = () => {
     if (typeof cashAmount !== "number" || cashAmount < total) {
@@ -74,6 +84,22 @@ const Cart = ({
           <span>Total:</span>
           <span>{formatCurrency(total)}</span>
         </div>
+        
+        <div className="space-y-2">
+          <label className="text-sm">Metode Pembayaran:</label>
+          <Select defaultValue="Cash" onValueChange={setPaymentMethod}>
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Pilih metode pembayaran" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Cash">Cash</SelectItem>
+              <SelectItem value="Debit">Kartu Debit</SelectItem>
+              <SelectItem value="Credit">Kartu Kredit</SelectItem>
+              <SelectItem value="QRIS">QRIS</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        
         <div className="space-y-2">
           <label className="text-sm">Jumlah Dibayar:</label>
           <Input
@@ -100,7 +126,7 @@ const Cart = ({
           </Button>
           <Button
             className="w-full bg-primary hover:bg-primary-dark text-secondary-foreground"
-            onClick={onCheckout}
+            onClick={() => onCheckout(paymentMethod)}
           >
             Selesai
           </Button>

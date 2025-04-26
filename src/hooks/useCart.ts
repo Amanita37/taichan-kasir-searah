@@ -65,7 +65,7 @@ export const useCart = () => {
     setCashAmount("");
   };
 
-  const handleCheckout = async (cashierName: string = "Admin") => {
+  const handleCheckout = async (paymentMethod = "Cash", cashierName = "Admin") => {
     if (cart.length === 0) {
       toast({
         title: "Keranjang Kosong",
@@ -99,7 +99,7 @@ export const useCart = () => {
         })),
         total: calculateTotal(),
         payment_amount: Number(cashAmount),
-        payment_method: "Cash",
+        payment_method: paymentMethod,
         cashier_name: cashierName
       };
 
@@ -174,6 +174,7 @@ export const useCart = () => {
                 padding: 5mm;
                 margin: 0;
                 width: ${receiptWidth}mm;
+                font-weight: bold;
               }
               .receipt {
                 width: 100%;
@@ -211,6 +212,9 @@ export const useCart = () => {
               @media print {
                 body {
                   width: ${receiptWidth}mm;
+                  margin: 0;
+                  padding: 0;
+                  font-weight: bold;
                 }
                 @page {
                   margin: 0;

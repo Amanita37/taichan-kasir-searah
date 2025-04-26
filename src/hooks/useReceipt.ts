@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useTransactions } from "@/hooks/useTransactions";
@@ -118,6 +119,7 @@ export const useReceipt = () => {
                 padding: 5mm;
                 margin: 0;
                 width: ${receiptWidth}mm;
+                font-weight: bold;
               }
               .receipt {
                 width: 100%;
@@ -155,6 +157,9 @@ export const useReceipt = () => {
               @media print {
                 body {
                   width: ${receiptWidth}mm;
+                  margin: 0;
+                  padding: 0;
+                  font-weight: bold;
                 }
                 @page {
                   margin: 0;

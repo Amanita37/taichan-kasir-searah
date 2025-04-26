@@ -24,6 +24,8 @@ export interface PaymentDialogProps {
   cashAmount: number | "";
   total: number;
   onConfirm: () => void;
+  paymentMethod?: string;
+  onPaymentMethodChange?: (value: string) => void;
 }
 
 export interface CartProps {
@@ -55,4 +57,3 @@ export interface ProductGridProps {
   onProductClick: (product: Product) => void;
   isLoading?: boolean;
 }
-

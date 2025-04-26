@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useToast } from "@/components/ui/use-toast";
@@ -18,6 +19,7 @@ const POS = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [category, setCategory] = useState("Semua");
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState("Cash");
   const { toast } = useToast();
   const { products, isLoadingProducts } = useProducts();
   const navigate = useNavigate();
@@ -72,7 +74,7 @@ const POS = () => {
     })) : [];
 
   const handleConfirmPayment = async () => {
-    if (await handleCheckout()) {
+    if (await handleCheckout(paymentMethod)) {
       clearCart();
       setIsPaymentDialogOpen(false);
       
@@ -145,6 +147,8 @@ const POS = () => {
           cashAmount={cashAmount}
           total={calculateTotal()}
           onConfirm={handleConfirmPayment}
+          paymentMethod={paymentMethod}
+          onPaymentMethodChange={setPaymentMethod}
         />
       </DashboardLayout>
     </ErrorBoundary>
