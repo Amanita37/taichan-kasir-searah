@@ -1,5 +1,5 @@
 
-import { forwardRef } from "react";
+import { forwardRef, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -110,6 +110,8 @@ const ReceiptViewerDialog = ({
   settings,
   onPrint,
 }: ReceiptViewerDialogProps) => {
+  const receiptRef = useRef<HTMLDivElement>(null);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">

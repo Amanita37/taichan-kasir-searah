@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { type User, type UserFormData, getRoleName } from "@/types/user";
 import { Key } from "lucide-react";
 
-// Temporary user data (would come from Supabase)
+// Updated initial users data with Mario Rezo
 const DEMO_USERS = [
   { 
     id: 1,
@@ -29,14 +29,14 @@ const DEMO_USERS = [
     lastLogin: "2025-04-24T09:15:00",
     isActive: true,
   },
-  { 
-    id: 4,
-    name: "Diana Putri",
-    email: "diana@example.com",
-    role: "cashier",
-    lastLogin: "2025-04-22T14:30:00",
-    isActive: false,
-  },
+  {
+    id: 5,
+    name: "Mario Rezo",
+    email: "riyo.rezo@gmail.com",
+    role: "owner",
+    lastLogin: "2025-04-26T10:00:00",
+    isActive: true,
+  }
 ];
 
 export const useUsers = () => {
@@ -184,6 +184,27 @@ export const useUsers = () => {
     }
   };
 
+  const deleteUser = async (id: number): Promise<void> => {
+    setIsLoading(true);
+    try {
+      setUsers((prev) => prev.filter((user) => user.id !== id));
+      toast({
+        title: "Pengguna Dihapus",
+        description: "Pengguna berhasil dihapus.",
+        duration: 1000,
+      });
+    } catch (error) {
+      toast({
+        title: "Gagal Menghapus Pengguna",
+        description: "Terjadi kesalahan saat menghapus pengguna",
+        variant: "destructive",
+        duration: 1000,
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return {
     users: filteredUsers,
     searchQuery,
@@ -191,6 +212,7 @@ export const useUsers = () => {
     addUser,
     updateUser,
     toggleUserStatus,
+    deleteUser,
     isLoading,
   };
 };

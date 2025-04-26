@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useToast } from "@/components/ui/use-toast";
@@ -13,7 +12,7 @@ import { useProducts } from "@/hooks/useProducts";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
-const CATEGORIES = ["Semua", "Bahan Pokok", "Segar", "Minuman", "Makanan"];
+const CATEGORIES = ["Semua", "Bahan Pokok", "Paket", "Minuman", "Makanan"];
 
 const POS = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -39,7 +38,6 @@ const POS = () => {
     handlePrintReceipt,
   } = useCart();
 
-  // Setup real-time subscription to products table
   useEffect(() => {
     const channel = supabase
       .channel('product-changes')
@@ -58,7 +56,6 @@ const POS = () => {
     };
   }, []);
 
-  // Filter products based on search query and category
   const filteredProducts = products ? products
     .filter((product) => 
       (category === "Semua" || product.category === category) &&
@@ -79,7 +76,6 @@ const POS = () => {
       clearCart();
       setIsPaymentDialogOpen(false);
       
-      // Redirect to receipt page after successful transaction
       toast({
         title: "Mengarahkan ke halaman struk",
         description: "Anda akan diarahkan ke halaman struk.",
