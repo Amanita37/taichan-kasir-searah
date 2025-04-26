@@ -18,11 +18,31 @@ const Users = () => {
     addUser, 
     updateUser, 
     toggleUserStatus,
-    isLoading 
+    isLoading,
+    deleteUser
   } = useUsers();
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+
+  // Remove Diana Putri on component mount
+  useEffect(() => {
+    const removeDianaUser = async () => {
+      if (users) {
+        const diana = users.find(user => user.name === "Diana Putri");
+        if (diana) {
+          try {
+            await deleteUser(diana.id);
+            console.log("Diana Putri removed");
+          } catch (error) {
+            console.error("Error removing Diana Putri:", error);
+          }
+        }
+      }
+    };
+    
+    removeDianaUser();
+  }, [users, deleteUser]);
 
   const handleEditUser = (user: User) => {
     setCurrentUser(user);
@@ -65,6 +85,7 @@ const Users = () => {
             users={users}
             onEditUser={handleEditUser}
             onToggleStatus={toggleUserStatus}
+            onDeleteUser={deleteUser}
             isLoading={isLoading}
           />
         </div>

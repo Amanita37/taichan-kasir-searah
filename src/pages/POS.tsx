@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { useToast } from "@/components/ui/use-toast";
 import ProductGrid from "@/components/pos/ProductGrid";
@@ -8,19 +9,9 @@ import ProductSearch from "@/components/pos/ProductSearch";
 import { useCart } from "@/hooks/useCart";
 import { type Product } from "@/types/pos";
 import ErrorBoundary from "@/components/ErrorBoundary";
-
-const DEMO_PRODUCTS: Product[] = [
-  { id: "1", name: "Beras 5kg", price: 65000, category: "Bahan Pokok", image: "/placeholder.svg", stock: 100, barcode: "8998989300019" },
-  { id: "2", name: "Minyak Goreng 2L", price: 38000, category: "Bahan Pokok", image: "/placeholder.svg", stock: 75, barcode: "8998989300026" },
-  { id: "3", name: "Gula Pasir 1kg", price: 15000, category: "Bahan Pokok", image: "/placeholder.svg", stock: 120, barcode: "8998989300033" },
-  { id: "4", name: "Tepung Terigu 1kg", price: 12000, category: "Bahan Pokok", image: "/placeholder.svg", stock: 85, barcode: "8998989300040" },
-  { id: "5", name: "Telur Ayam 1kg", price: 27000, category: "Segar", image: "/placeholder.svg", stock: 60, barcode: "8998989300057" },
-  { id: "6", name: "Ayam Potong 1kg", price: 32000, category: "Segar", image: "/placeholder.svg", stock: 45, barcode: "8998989300064" },
-  { id: "7", name: "Coca Cola 1.5L", price: 16000, category: "Minuman", image: "/placeholder.svg", stock: 90, barcode: "8998989300071" },
-  { id: "8", name: "Aqua 1.5L", price: 7000, category: "Minuman", image: "/placeholder.svg", stock: 150, barcode: "8998989300088" },
-  { id: "9", name: "Mie Instan", price: 3500, category: "Makanan", image: "/placeholder.svg", stock: 200, barcode: "8998989300095" },
-  { id: "10", name: "Roti Tawar", price: 15000, category: "Makanan", image: "/placeholder.svg", stock: 70, barcode: "8998989300101" },
-];
+import { useProducts } from "@/hooks/useProducts";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 const CATEGORIES = ["Semua", "Bahan Pokok", "Segar", "Minuman", "Makanan"];
 
@@ -29,6 +20,8 @@ const POS = () => {
   const [category, setCategory] = useState("Semua");
   const [isPaymentDialogOpen, setIsPaymentDialogOpen] = useState(false);
   const { toast } = useToast();
+  const { products, isLoadingProducts } = useProducts();
+  const navigate = useNavigate();
   
   const {
     cart,
@@ -43,40 +36,59 @@ const POS = () => {
     calculateTotal,
     clearCart,
     handleCheckout,
+    handlePrintReceipt,
   } = useCart();
 
-  const filteredProducts = DEMO_PRODUCTS.filter(
-    (product) =>
+  // Setup real-time subscription to products table
+  useEffect(() => {
+    const channel = supabase
+      .channel('product-changes')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'products' },
+        (payload) => {
+          console.log('Product change received:', payload);
+          // No need to handle directly as useProducts will refresh
+        }
+      )
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Filter products based on search query and category
+  const filteredProducts = products ? products
+    .filter((product) => 
       (category === "Semua" || product.category === category) &&
       product.name.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+    )
+    .map(product => ({
+      id: product.id,
+      name: product.name,
+      price: product.price,
+      category: product.category,
+      image: product.image_url || '/placeholder.svg',
+      stock: product.stock,
+      barcode: product.barcode || ''
+    })) : [];
 
-  const handlePrintReceipt = () => {
-    toast({
-      title: "Print Struk",
-      description: "Fitur cetak struk sedang diimplementasikan.",
-    });
-  };
-
-  const handleConfirmPayment = () => {
-    if (handleCheckout()) {
-      toast({
-        title: "Transaksi Berhasil",
-        description: `Total: ${new Intl.NumberFormat("id-ID", {
-          style: "currency",
-          currency: "IDR",
-          minimumFractionDigits: 0,
-        }).format(calculateTotal())}. Kembalian: ${new Intl.NumberFormat("id-ID", {
-          style: "currency",
-          currency: "IDR",
-          minimumFractionDigits: 0,
-        }).format(
-          Number(cashAmount) - calculateTotal()
-        )}`,
-      });
-
+  const handleConfirmPayment = async () => {
+    if (await handleCheckout()) {
       clearCart();
       setIsPaymentDialogOpen(false);
+      
+      // Redirect to receipt page after successful transaction
+      toast({
+        title: "Mengarahkan ke halaman struk",
+        description: "Anda akan diarahkan ke halaman struk.",
+        duration: 1000,
+      });
+      
+      setTimeout(() => {
+        navigate('/receipt');
+      }, 1500);
     }
   };
 
@@ -94,7 +106,11 @@ const POS = () => {
             />
 
             <div className="flex-1 overflow-y-auto pb-4">
-              {filteredProducts.length > 0 ? (
+              {isLoadingProducts ? (
+                <div className="flex h-full items-center justify-center">
+                  <p className="text-gray-500">Memuat produk...</p>
+                </div>
+              ) : filteredProducts.length > 0 ? (
                 <ProductGrid 
                   products={filteredProducts}
                   onProductClick={addToCart}

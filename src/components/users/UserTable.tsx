@@ -11,11 +11,13 @@ import {
 import { Button } from "@/components/ui/button";
 import { type User, getRoleName, formatDate } from "@/types/user";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Trash2 } from "lucide-react";
 
 interface UserTableProps {
   users: User[];
   onEditUser: (user: User) => void;
   onToggleStatus: (id: number) => void;
+  onDeleteUser?: (id: number) => void;
   isLoading?: boolean;
 }
 
@@ -23,6 +25,7 @@ const UserTable: React.FC<UserTableProps> = ({
   users, 
   onEditUser, 
   onToggleStatus,
+  onDeleteUser,
   isLoading = false 
 }) => {
   if (isLoading) {
@@ -71,7 +74,7 @@ const UserTable: React.FC<UserTableProps> = ({
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.length > 0 ? (
+            {users && users.length > 0 ? (
               users.map((user) => (
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">{user.name}</TableCell>
@@ -105,6 +108,16 @@ const UserTable: React.FC<UserTableProps> = ({
                       >
                         {user.isActive ? "Nonaktifkan" : "Aktifkan"}
                       </Button>
+                      {onDeleteUser && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="text-red-500"
+                          onClick={() => onDeleteUser(user.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
