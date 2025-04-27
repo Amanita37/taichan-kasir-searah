@@ -3,32 +3,7 @@ import { useToast } from "@/hooks/use-toast";
 import { type User, type UserFormData, getRoleName } from "@/types/user";
 import { Key } from "lucide-react";
 
-// Updated initial users data with Mario Rezo
 const DEMO_USERS = [
-  { 
-    id: 1,
-    name: "Andi Budi",
-    email: "andi@example.com",
-    role: "owner",
-    lastLogin: "2025-04-23T15:20:00",
-    isActive: true,
-  },
-  { 
-    id: 2,
-    name: "Siti Rahayu",
-    email: "siti@example.com",
-    role: "warehouse_admin",
-    lastLogin: "2025-04-23T10:45:00",
-    isActive: true,
-  },
-  { 
-    id: 3,
-    name: "Bambang Wijaya",
-    email: "bambang@example.com",
-    role: "cashier",
-    lastLogin: "2025-04-24T09:15:00",
-    isActive: true,
-  },
   {
     id: 5,
     name: "Mario Rezo",

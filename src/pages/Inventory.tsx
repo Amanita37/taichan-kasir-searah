@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -42,7 +41,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useProducts } from "@/hooks/useProducts";
 import SupabaseInfoBox from "@/components/SupabaseInfoBox";
 
-const CATEGORIES = ["Bahan Pokok", "Segar", "Minuman", "Makanan", "Lainnya"];
+const CATEGORIES = ["Bahan Pokok", "Paket", "Minuman", "Makanan", "Lainnya"];
 const UNITS = ["pack", "botol", "tray", "karton", "kg", "pcs"];
 
 interface ProductFormData {

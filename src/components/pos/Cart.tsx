@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -119,7 +118,7 @@ const Cart = ({
           <Button
             variant="outline"
             className="w-full flex items-center gap-2"
-            onClick={onPrintReceipt}
+            onClick={() => onPrintReceipt()}
           >
             <Receipt className="h-4 w-4" />
             Print Struk

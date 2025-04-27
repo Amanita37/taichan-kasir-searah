@@ -30,10 +30,30 @@ export const printReceipt = ({ transaction, transactionItems, settings }: PrintR
         <head>
           <title>Struk Pembayaran</title>
           <style>
+            @media print {
+              @page {
+                margin: 0;
+                padding: 0;
+                size: ${receiptWidth}mm auto;
+              }
+              body {
+                margin: 0;
+                padding: 0;
+                width: ${receiptWidth}mm;
+                font-family: 'Courier New', monospace;
+                font-size: 12px;
+                font-weight: bold !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+              }
+              * {
+                font-weight: bold !important;
+              }
+            }
             body {
               font-family: 'Courier New', monospace;
               font-size: 12px;
-              padding: 5mm;
+              padding: 0;
               margin: 0;
               width: ${receiptWidth}mm;
               font-weight: bold;
@@ -155,18 +175,24 @@ export const printReceipt = ({ transaction, transactionItems, settings }: PrintR
               <p>${settings?.receipt_footer || "Terima kasih atas kunjungan Anda!"}</p>
             </div>
           </div>
-        </body>
-        <script>
-          setTimeout(function() {
-            try {
-              window.print();
-              window.close();
-            } catch(e) {
-              console.error("Print error:", e);
-              window.close();
+          <script>
+            function handlePrint() {
+              try {
+                if (window.Android) {
+                  // Handle Android WebView printing
+                  window.Android.printPage();
+                } else {
+                  window.print();
+                }
+                setTimeout(() => window.close(), 500);
+              } catch(e) {
+                console.error("Print error:", e);
+                window.close();
+              }
             }
-          }, 500);
-        </script>
+            setTimeout(handlePrint, 500);
+          </script>
+        </body>
       </html>
     `);
     
