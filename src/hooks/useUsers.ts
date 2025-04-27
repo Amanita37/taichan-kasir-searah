@@ -1,31 +1,36 @@
+
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 import { type User, type UserFormData, getRoleName } from "@/types/user";
-import { Key } from "lucide-react";
-
-const DEMO_USERS = [
-  {
-    id: 5,
-    name: "Mario Rezo",
-    email: "riyo.rezo@gmail.com",
-    role: "owner",
-    lastLogin: "2025-04-26T10:00:00",
-    isActive: true,
-  }
-];
 
 export const useUsers = () => {
-  const [users, setUsers] = useState(DEMO_USERS);
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState("");
 
-  const filteredUsers = users.filter(
-    (user) =>
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      getRoleName(user.role).toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const fetchUsers = async () => {
+    try {
+      const { data: profiles, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      return profiles.map(profile => ({
+        id: profile.id,
+        name: profile.full_name,
+        email: "",  // Email is not stored in profiles table for security
+        role: profile.role,
+        lastLogin: null,
+        isActive: profile.active
+      }));
+    } catch (error) {
+      console.error("Error fetching users:", error);
+      return [];
+    }
+  };
 
   const validateForm = (formData: UserFormData): boolean => {
     if (!formData.name || !formData.email || !formData.role) {
@@ -64,18 +69,25 @@ export const useUsers = () => {
     
     setIsLoading(true);
     try {
-      const newUser = {
-        id: users.length + 1,
-        name: formData.name,
+      const { data, error: signUpError } = await supabase.auth.signUp({
         email: formData.email,
-        role: formData.role,
-        lastLogin: null,
-        isActive: true,
-      };
+        password: formData.password,
+        options: {
+          data: {
+            full_name: formData.name,
+          },
+        },
+      });
 
-      // Optimistic update
-      setUsers((prev) => [...prev, newUser]);
-      
+      if (signUpError) throw signUpError;
+
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ role: formData.role })
+        .eq("id", data.user?.id);
+
+      if (updateError) throw updateError;
+
       toast({
         title: "Pengguna Ditambahkan",
         description: `${formData.name} berhasil ditambahkan sebagai ${getRoleName(formData.role)}.`,
@@ -83,9 +95,10 @@ export const useUsers = () => {
       
       return true;
     } catch (error) {
+      console.error("Error adding user:", error);
       toast({
         title: "Gagal Menambahkan Pengguna",
-        description: "Terjadi kesalahan saat menambahkan pengguna",
+        description: error.message || "Terjadi kesalahan saat menambahkan pengguna",
         variant: "destructive",
       });
       return false;
@@ -94,25 +107,18 @@ export const useUsers = () => {
     }
   };
 
-  const updateUser = async (userId: number, formData: UserFormData): Promise<boolean> => {
-    if (!validateForm(formData)) return false;
-
+  const updateUser = async (userId: string, formData: UserFormData): Promise<boolean> => {
     setIsLoading(true);
     try {
-      // Optimistic update
-      setUsers((prev) =>
-        prev.map((user) => {
-          if (user.id === userId) {
-            return {
-              ...user,
-              name: formData.name,
-              email: formData.email,
-              role: formData.role,
-            };
-          }
-          return user;
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          full_name: formData.name,
+          role: formData.role,
         })
-      );
+        .eq("id", userId);
+
+      if (error) throw error;
 
       toast({
         title: "Pengguna Diperbarui",
@@ -121,9 +127,10 @@ export const useUsers = () => {
 
       return true;
     } catch (error) {
+      console.error("Error updating user:", error);
       toast({
         title: "Gagal Memperbarui Pengguna",
-        description: "Terjadi kesalahan saat memperbarui pengguna",
+        description: error.message || "Terjadi kesalahan saat memperbarui pengguna",
         variant: "destructive",
       });
       return false;
@@ -132,48 +139,34 @@ export const useUsers = () => {
     }
   };
 
-  const toggleUserStatus = async (id: number): Promise<void> => {
+  const toggleUserStatus = async (id: string): Promise<void> => {
     setIsLoading(true);
     try {
-      setUsers((prev) =>
-        prev.map((user) => {
-          if (user.id === id) {
-            const newStatus = !user.isActive;
-            toast({
-              title: newStatus ? "Pengguna Diaktifkan" : "Pengguna Dinonaktifkan",
-              description: `${user.name} telah ${newStatus ? "diaktifkan" : "dinonaktifkan"}.`,
-            });
-            return { ...user, isActive: newStatus };
-          }
-          return user;
-        })
-      );
+      const { data: currentProfile, error: fetchError } = await supabase
+        .from("profiles")
+        .select("active, full_name")
+        .eq("id", id)
+        .single();
+
+      if (fetchError) throw fetchError;
+
+      const { error: updateError } = await supabase
+        .from("profiles")
+        .update({ active: !currentProfile.active })
+        .eq("id", id);
+
+      if (updateError) throw updateError;
+
+      toast({
+        title: currentProfile.active ? "Pengguna Dinonaktifkan" : "Pengguna Diaktifkan",
+        description: `${currentProfile.full_name} telah ${currentProfile.active ? "dinonaktifkan" : "diaktifkan"}.`,
+      });
     } catch (error) {
+      console.error("Error toggling user status:", error);
       toast({
         title: "Gagal Mengubah Status",
-        description: "Terjadi kesalahan saat mengubah status pengguna",
+        description: error.message || "Terjadi kesalahan saat mengubah status pengguna",
         variant: "destructive",
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const deleteUser = async (id: number): Promise<void> => {
-    setIsLoading(true);
-    try {
-      setUsers((prev) => prev.filter((user) => user.id !== id));
-      toast({
-        title: "Pengguna Dihapus",
-        description: "Pengguna berhasil dihapus.",
-        duration: 1000,
-      });
-    } catch (error) {
-      toast({
-        title: "Gagal Menghapus Pengguna",
-        description: "Terjadi kesalahan saat menghapus pengguna",
-        variant: "destructive",
-        duration: 1000,
       });
     } finally {
       setIsLoading(false);
@@ -181,13 +174,12 @@ export const useUsers = () => {
   };
 
   return {
-    users: filteredUsers,
+    fetchUsers,
     searchQuery,
     setSearchQuery,
     addUser,
     updateUser,
     toggleUserStatus,
-    deleteUser,
     isLoading,
   };
 };
