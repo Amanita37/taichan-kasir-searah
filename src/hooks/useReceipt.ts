@@ -73,11 +73,21 @@ export const useReceipt = () => {
   };
 
   const handlePrint = () => {
-    printReceipt({
-      transaction: currentTransaction,
-      transactionItems,
-      settings,
-    });
+    if (currentTransaction && transactionItems) {
+      // Move the toast outside of the printReceipt function
+      toast({
+        title: "Cetak Struk",
+        description: "Struk sedang dicetak.",
+        duration: 1000,
+      });
+      
+      // Call printReceipt without using hooks inside
+      printReceipt({
+        transaction: currentTransaction,
+        transactionItems,
+        settings,
+      });
+    }
   };
 
   return {

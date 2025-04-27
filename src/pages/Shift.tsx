@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import DashboardLayout from "@/components/layout/DashboardLayout";
 import { Button } from "@/components/ui/button";
@@ -17,7 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Search, Calendar, FileText, Printer } from "lucide-react";
+import { Search, Calendar, FileText } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
 import { format } from "date-fns";
@@ -28,6 +27,7 @@ import { formatCurrency } from "@/lib/utils";
 import { Pagination } from "@/components/ui/pagination";
 import ReceiptViewerDialog from "@/components/receipt/ReceiptViewerDialog";
 import { useSettings } from "@/hooks/useSettings";
+import { printReceipt } from "@/utils/receiptPrinter";
 
 const DailySaleReport = () => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -112,177 +112,19 @@ const DailySaleReport = () => {
   };
 
   const handlePrint = () => {
-    try {
-      const printWindow = window.open('', '', 'height=600,width=800');
-      if (!printWindow) {
-        toast({
-          title: "Gagal Mencetak",
-          description: "Popup blocker mungkin mencegah pencetakan. Mohon izinkan pop-up untuk situs ini.",
-          variant: "destructive",
-          duration: 1000,
-        });
-        return;
-      }
-      
-      const receiptWidth = settings?.receipt_width || 48;
-      
-      printWindow.document.write(`
-        <html>
-          <head>
-            <title>Struk Pembayaran</title>
-            <style>
-              body {
-                font-family: 'Courier New', monospace;
-                font-size: 12px;
-                padding: 5mm;
-                margin: 0;
-                width: ${receiptWidth}mm;
-              }
-              .receipt {
-                width: 100%;
-                max-width: 100%;
-              }
-              .header {
-                text-align: center;
-                margin-bottom: 10px;
-              }
-              .title {
-                font-size: 14px;
-                font-weight: bold;
-              }
-              .divider {
-                border-top: 1px dashed #000;
-                margin: 10px 0;
-              }
-              .item {
-                display: flex;
-                justify-content: space-between;
-              }
-              .item-detail {
-                display: flex;
-                flex-direction: column;
-              }
-              .total {
-                font-weight: bold;
-                margin-top: 10px;
-              }
-              .footer {
-                text-align: center;
-                margin-top: 10px;
-                font-size: 10px;
-              }
-              @media print {
-                body {
-                  width: ${receiptWidth}mm;
-                  font-weight: bold;
-                }
-                @page {
-                  margin: 0;
-                  size: ${receiptWidth}mm auto;
-                }
-              }
-            </style>
-          </head>
-          <body>
-            <div class="receipt">
-              <div class="header">
-                <div class="title">${settings?.store_name || "Taichan Searah"}</div>
-                <div class="text-sm">${settings?.store_address || "Jl. Contoh No. 123, Jakarta"}</div>
-                <div class="text-sm">${settings?.store_phone || "(021) 123-4567"}</div>
-              </div>
-              
-              <div class="divider"></div>
-              
-              <div class="text-sm">
-                <div class="flex justify-between">
-                  <span>No. Transaksi:</span>
-                  <span>${currentTransaction?.transaction_number}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span>Tanggal:</span>
-                  <span>${format(new Date(currentTransaction?.created_at || new Date()), 'dd MMM yyyy HH:mm')}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span>Kasir:</span>
-                  <span>${currentTransaction?.cashier_name}</span>
-                </div>
-                ${currentTransaction?.customer_name ? `
-                <div class="flex justify-between">
-                  <span>Pelanggan:</span>
-                  <span>${currentTransaction?.customer_name}</span>
-                </div>
-                ` : ''}
-              </div>
-              
-              <div class="divider"></div>
-              
-              <div class="items space-y-2">
-                ${transactionItems.map((item) => `
-                  <div class="flex justify-between">
-                    <div>
-                      <div>${item.product_name}</div>
-                      <div class="text-sm">${formatCurrency(item.price)} x ${item.quantity}</div>
-                    </div>
-                    <div class="font-medium">
-                      ${formatCurrency(item.total)}
-                    </div>
-                  </div>
-                `).join('')}
-              </div>
-              
-              <div class="divider"></div>
-              
-              <div class="totals space-y-1">
-                <div class="flex justify-between">
-                  <span>Total:</span>
-                  <span class="font-bold">${formatCurrency(currentTransaction?.total)}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span>Pembayaran (${currentTransaction?.payment_method}):</span>
-                  <span>${formatCurrency(currentTransaction?.payment_amount)}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span>Kembalian:</span>
-                  <span>${formatCurrency(Number(currentTransaction?.payment_amount) - Number(currentTransaction?.total))}</span>
-                </div>
-              </div>
-              
-              <div class="divider"></div>
-              
-              <div class="footer text-center text-sm">
-                <p>${settings?.receipt_footer || "Terima kasih atas kunjungan Anda!"}</p>
-              </div>
-            </div>
-          </body>
-          <script>
-            setTimeout(function() {
-              try {
-                window.print();
-                window.close();
-              } catch(e) {
-                console.error("Print error:", e);
-                window.close();
-              }
-            }, 500);
-          </script>
-        </html>
-      `);
-      
-      printWindow.document.close();
-      
+    if (currentTransaction && transactionItems) {
+      // Show toast notification
       toast({
         title: "Cetak Struk",
         description: "Struk sedang dicetak.",
         duration: 1000,
       });
       
-    } catch (error) {
-      console.error("Print error:", error);
-      toast({
-        title: "Gagal Mencetak",
-        description: "Terjadi kesalahan saat mencetak struk.",
-        variant: "destructive",
-        duration: 1000,
+      // Use the shared print function
+      printReceipt({
+        transaction: currentTransaction,
+        transactionItems,
+        settings,
       });
     }
   };

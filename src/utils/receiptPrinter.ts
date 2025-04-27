@@ -1,6 +1,5 @@
 
 import { formatCurrency, formatDate } from "@/lib/utils";
-import { useToast } from "@/hooks/use-toast";
 
 interface PrintReceiptProps {
   transaction: any;
@@ -9,17 +8,10 @@ interface PrintReceiptProps {
 }
 
 export const printReceipt = ({ transaction, transactionItems, settings }: PrintReceiptProps) => {
-  const { toast } = useToast();
-  
   try {
     const printWindow = window.open('', '', 'height=600,width=800');
     if (!printWindow) {
-      toast({
-        title: "Gagal Mencetak",
-        description: "Popup blocker mungkin mencegah pencetakan. Mohon izinkan pop-up untuk situs ini.",
-        variant: "destructive",
-        duration: 1000,
-      });
+      console.error("Popup blocker mungkin mencegah pencetakan.");
       return;
     }
     
@@ -29,6 +21,7 @@ export const printReceipt = ({ transaction, transactionItems, settings }: PrintR
       <html>
         <head>
           <title>Struk Pembayaran</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <style>
             @media print {
               @page {
@@ -90,18 +83,6 @@ export const printReceipt = ({ transaction, transactionItems, settings }: PrintR
               text-align: center;
               margin-top: 10px;
               font-size: 10px;
-            }
-            @media print {
-              body {
-                width: ${receiptWidth}mm;
-                margin: 0;
-                padding: 0;
-                font-weight: bold;
-              }
-              @page {
-                margin: 0;
-                size: ${receiptWidth}mm auto;
-              }
             }
           </style>
         </head>
@@ -176,21 +157,76 @@ export const printReceipt = ({ transaction, transactionItems, settings }: PrintR
             </div>
           </div>
           <script>
-            function handlePrint() {
-              try {
-                if (window.Android) {
-                  // Handle Android WebView printing
-                  window.Android.printPage();
-                } else {
-                  window.print();
-                }
-                setTimeout(() => window.close(), 500);
-              } catch(e) {
-                console.error("Print error:", e);
-                window.close();
+            // Improved printing function with proper error handling
+            function detectPrintEnvironment() {
+              const userAgent = navigator.userAgent.toLowerCase();
+              if (userAgent.includes('android')) {
+                return 'android';
+              } else if (userAgent.includes('ios') || userAgent.includes('iphone') || userAgent.includes('ipad')) {
+                return 'ios';
+              } else {
+                return 'desktop';
               }
             }
-            setTimeout(handlePrint, 500);
+
+            function handlePrint() {
+              try {
+                const env = detectPrintEnvironment();
+                console.log("Print environment detected:", env);
+                
+                if (env === 'android') {
+                  // For Android WebView
+                  if (typeof Android !== 'undefined' && Android !== null) {
+                    // Try specific Android printing method
+                    console.log("Using Android WebView printing");
+                    
+                    try {
+                      // First option: Use Android.printPage if available
+                      if (typeof Android.printPage === 'function') {
+                        Android.printPage();
+                        console.log("Android.printPage executed");
+                      } 
+                      // Second option: Use Android.print if available
+                      else if (typeof Android.print === 'function') {
+                        Android.print();
+                        console.log("Android.print executed");
+                      } 
+                      // Last resort: Use WebView print
+                      else {
+                        console.log("No specific Android print method found, using window.print");
+                        window.print();
+                      }
+                    } catch (androidError) {
+                      console.error("Android printing error:", androidError);
+                      // Fallback to standard printing
+                      window.print();
+                    }
+                  } else {
+                    // Standard printing if no Android interface
+                    console.log("No Android interface found, using standard print");
+                    window.print();
+                  }
+                } else {
+                  // Standard printing for desktop and iOS
+                  console.log("Using standard print method");
+                  window.print();
+                }
+                
+                // Delay closing to ensure print completes
+                setTimeout(() => {
+                  console.log("Print operation completed");
+                  window.close();
+                }, 1000);
+                
+              } catch(e) {
+                console.error("Print error:", e);
+                // Don't close window on error to allow manual printing
+                alert("Print error: " + e.message + " - Please try printing manually.");
+              }
+            }
+            
+            // Wait a bit longer before trying to print to ensure everything is loaded
+            setTimeout(handlePrint, 800);
           </script>
         </body>
       </html>
@@ -198,19 +234,9 @@ export const printReceipt = ({ transaction, transactionItems, settings }: PrintR
     
     printWindow.document.close();
     
-    toast({
-      title: "Cetak Struk",
-      description: "Struk sedang dicetak.",
-      duration: 1000,
-    });
+    console.log("Print window opened successfully");
     
   } catch (error) {
     console.error("Print error:", error);
-    toast({
-      title: "Gagal Mencetak",
-      description: "Terjadi kesalahan saat mencetak struk.",
-      variant: "destructive",
-      duration: 1000,
-    });
   }
 };
