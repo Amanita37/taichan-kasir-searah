@@ -40,7 +40,7 @@ export function useAuth() {
 
       if (error) throw error;
 
-      navigate("/dashboard");
+      navigate("/pos"); // Changed from "/dashboard" to "/pos"
       toast({
         title: "Login berhasil",
         description: "Selamat datang kembali!",
