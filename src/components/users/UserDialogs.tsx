@@ -16,21 +16,27 @@ import { type User, type UserFormData } from "@/types/user";
 interface UserDialogsProps {
   isAddDialogOpen: boolean;
   isEditDialogOpen: boolean;
+  isDeleteDialogOpen?: boolean;
   currentUser: User | null;
   onCloseAddDialog: () => void;
   onCloseEditDialog: () => void;
+  onCloseDeleteDialog?: () => void;
   onAddUser: (formData: UserFormData) => Promise<boolean>;
   onUpdateUser: (formData: UserFormData) => Promise<boolean>;
+  onDeleteUser?: (id: number | string) => Promise<boolean>;
 }
 
 const UserDialogs = ({
   isAddDialogOpen,
   isEditDialogOpen,
+  isDeleteDialogOpen = false,
   currentUser,
   onCloseAddDialog,
   onCloseEditDialog,
+  onCloseDeleteDialog = () => {},
   onAddUser,
   onUpdateUser,
+  onDeleteUser,
 }: UserDialogsProps) => {
   const [formData, setFormData] = useState<UserFormData>({
     name: currentUser?.name || "",
@@ -59,6 +65,15 @@ const UserDialogs = ({
     if (success) {
       onCloseEditDialog();
       setFormData({ name: "", email: "", password: "", role: "" });
+    }
+  };
+
+  const handleDeleteUser = async () => {
+    if (onDeleteUser && currentUser) {
+      const success = await onDeleteUser(currentUser.id);
+      if (success && onCloseDeleteDialog) {
+        onCloseDeleteDialog();
+      }
     }
   };
 
@@ -106,6 +121,25 @@ const UserDialogs = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {onDeleteUser && (
+        <Dialog open={!!isDeleteDialogOpen} onOpenChange={onCloseDeleteDialog}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle>Konfirmasi Hapus Pengguna</DialogTitle>
+              <DialogDescription>
+                Apakah Anda yakin ingin menghapus pengguna ini?
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="flex space-x-2 justify-end">
+              <DialogClose asChild>
+                <Button variant="outline">Batal</Button>
+              </DialogClose>
+              <Button onClick={handleDeleteUser} variant="destructive">Hapus</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
     </>
   );
 };

@@ -144,8 +144,8 @@ const Users = () => {
         </div>
 
         <UserSearch 
-          query={searchQuery}
-          onQueryChange={setSearchQuery}
+          value={searchQuery}
+          onChange={setSearchQuery}
         />
 
         <UserTable 
@@ -153,18 +153,19 @@ const Users = () => {
           isLoading={isLoading}
           onEditUser={editUser}
           onDeleteUser={confirmDelete}
+          onToggleStatus={toggleUserStatus}
         />
 
         <UserDialogs
           isAddDialogOpen={isAddDialogOpen}
-          setIsAddDialogOpen={setIsAddDialogOpen}
+          onCloseAddDialog={() => setIsAddDialogOpen(false)}
           isEditDialogOpen={isEditDialogOpen}
-          setIsEditDialogOpen={setIsEditDialogOpen}
+          onCloseEditDialog={() => setIsEditDialogOpen(false)}
           isDeleteDialogOpen={isDeleteDialogOpen}
-          setIsDeleteDialogOpen={setIsDeleteDialogOpen}
+          onCloseDeleteDialog={() => setIsDeleteDialogOpen(false)}
           currentUser={currentUser}
           onAddUser={handleAddUser}
-          onEditUser={handleEditUser}
+          onUpdateUser={handleEditUser}
           onDeleteUser={handleDeleteUser}
         />
       </div>

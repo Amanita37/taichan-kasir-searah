@@ -16,7 +16,7 @@ import { Trash2 } from "lucide-react";
 interface UserTableProps {
   users: User[];
   onEditUser: (user: User) => void;
-  onToggleStatus: (id: number) => void;
+  onToggleStatus?: (id: number) => void; // Make this prop optional
   onDeleteUser?: (id: number) => void;
   isLoading?: boolean;
 }
@@ -101,13 +101,15 @@ const UserTable: React.FC<UserTableProps> = ({
                       >
                         Edit
                       </Button>
-                      <Button
-                        size="sm"
-                        variant={user.isActive ? "destructive" : "outline"}
-                        onClick={() => onToggleStatus(user.id)}
-                      >
-                        {user.isActive ? "Nonaktifkan" : "Aktifkan"}
-                      </Button>
+                      {onToggleStatus && (
+                        <Button
+                          size="sm"
+                          variant={user.isActive ? "destructive" : "outline"}
+                          onClick={() => onToggleStatus(user.id)}
+                        >
+                          {user.isActive ? "Nonaktifkan" : "Aktifkan"}
+                        </Button>
+                      )}
                       {onDeleteUser && (
                         <Button
                           size="sm"

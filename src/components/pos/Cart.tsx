@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -125,7 +126,7 @@ const Cart = ({
           </Button>
           <Button
             className="w-full bg-primary hover:bg-primary-dark text-secondary-foreground"
-            onClick={() => onCheckout(paymentMethod)}
+            onClick={() => onCheckout()}
           >
             Selesai
           </Button>
