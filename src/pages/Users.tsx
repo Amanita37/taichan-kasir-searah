@@ -23,7 +23,7 @@ const Users = () => {
     setSearchQuery,
     addUser,
     updateUser,
-    deleteUserProfile
+    toggleUserStatus
   } = useUsers();
   
   const { toast } = useToast();
@@ -51,13 +51,16 @@ const Users = () => {
 
   const handleAddUser = async (formData: UserFormData) => {
     try {
-      await addUser(formData);
-      setIsAddDialogOpen(false);
-      toast({
-        title: "Success",
-        description: "User added successfully",
-      });
-      loadUsers();
+      const result = await addUser(formData);
+      if (result) {
+        setIsAddDialogOpen(false);
+        toast({
+          title: "Success",
+          description: "User added successfully",
+        });
+        loadUsers();
+      }
+      return result;
     } catch (error) {
       console.error("Error adding user:", error);
       toast({
@@ -65,20 +68,24 @@ const Users = () => {
         title: "Error",
         description: error.message || "Failed to add user",
       });
+      return false;
     }
   };
 
   const handleEditUser = async (formData: UserFormData) => {
-    if (!currentUser) return;
+    if (!currentUser) return false;
     
     try {
-      await updateUser(currentUser.id, formData);
-      setIsEditDialogOpen(false);
-      toast({
-        title: "Success",
-        description: "User updated successfully",
-      });
-      loadUsers();
+      const result = await updateUser(currentUser.id, formData);
+      if (result) {
+        setIsEditDialogOpen(false);
+        toast({
+          title: "Success",
+          description: "User updated successfully",
+        });
+        loadUsers();
+      }
+      return result;
     } catch (error) {
       console.error("Error updating user:", error);
       toast({
@@ -86,25 +93,28 @@ const Users = () => {
         title: "Error",
         description: error.message || "Failed to update user",
       });
+      return false;
     }
   };
 
   const handleDeleteUser = async (id: string) => {
     try {
-      await deleteUserProfile(id);
+      await toggleUserStatus(id);
       setIsDeleteDialogOpen(false);
       toast({
         title: "Success",
-        description: "User deleted successfully",
+        description: "User status updated successfully",
       });
       loadUsers();
+      return true;
     } catch (error) {
-      console.error("Error deleting user:", error);
+      console.error("Error updating user status:", error);
       toast({
         variant: "destructive",
         title: "Error",
-        description: error.message || "Failed to delete user",
+        description: error.message || "Failed to update user status",
       });
+      return false;
     }
   };
 
@@ -134,15 +144,15 @@ const Users = () => {
         </div>
 
         <UserSearch 
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
+          query={searchQuery}
+          onQueryChange={setSearchQuery}
         />
 
         <UserTable 
           users={filteredUsers}
           isLoading={isLoading}
-          onEdit={editUser}
-          onDelete={confirmDelete}
+          onEditUser={editUser}
+          onDeleteUser={confirmDelete}
         />
 
         <UserDialogs

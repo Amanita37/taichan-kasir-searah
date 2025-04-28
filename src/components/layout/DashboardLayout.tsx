@@ -1,3 +1,4 @@
+
 import { ReactNode, useState } from "react";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -14,7 +15,7 @@ import {
   Clock,
   ArrowRight
 } from "lucide-react";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 
 interface DashboardLayoutProps {
@@ -36,14 +37,24 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
   };
 
   const navigation = [
-    { name: "Dashboard", href: "/dashboard", icon: Home },
-    { name: "POS", href: "/pos", icon: ShoppingCart },
-    { name: "Inventory", href: "/inventory", icon: Package },
-    { name: "Receipt", href: "/receipt", icon: Receipt },
-    { name: "Shift Management", href: "/shift", icon: Clock },
-    { name: "User Management", href: "/users", icon: Users },
-    { name: "Settings", href: "/settings", icon: Settings },
+    // Dashboard hidden as requested
+    { name: "POS", href: "/pos", icon: ShoppingCart, show: true },
+    { name: "Inventory", href: "/inventory", icon: Package, show: true },
+    { name: "Receipt", href: "/receipt", icon: Receipt, show: true },
+    { name: "Shift Management", href: "/shift", icon: Clock, show: true },
+    // User Management hidden as requested
+    { name: "Settings", href: "/settings", icon: Settings, show: true },
   ];
+
+  // Add the hidden navigation items but with show: false
+  const fullNavigation = [
+    { name: "Dashboard", href: "/dashboard", icon: Home, show: false },
+    ...navigation,
+    { name: "User Management", href: "/users", icon: Users, show: false },
+  ];
+
+  // Filter navigation items to show only the visible ones
+  const visibleNavigation = fullNavigation.filter(item => item.show);
 
   return (
     <div className="flex h-screen overflow-hidden bg-gray-100">
@@ -75,7 +86,7 @@ const DashboardLayout = ({ children }: DashboardLayoutProps) => {
           </div>
 
           <nav className="flex-1 space-y-1 px-2 py-4">
-            {navigation.map((item) => {
+            {visibleNavigation.map((item) => {
               const Icon = item.icon;
               return (
                 <Link

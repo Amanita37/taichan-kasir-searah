@@ -28,14 +28,6 @@ const Index = () => {
             </Button>
           </div>
           
-          <div className="pt-12">
-            <img
-              src="/placeholder.svg"
-              alt="POS System Illustration"
-              className="mx-auto max-w-md w-full h-auto rounded-lg shadow-lg"
-            />
-          </div>
-          
           <div className="space-y-4 pt-8">
             <h2 className="text-2xl font-semibold">Fitur Utama</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
