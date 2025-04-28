@@ -23,7 +23,7 @@ interface UserDialogsProps {
   onCloseDeleteDialog?: () => void;
   onAddUser: (formData: UserFormData) => Promise<boolean>;
   onUpdateUser: (formData: UserFormData) => Promise<boolean>;
-  onDeleteUser?: (id: number | string) => Promise<boolean>;
+  onDeleteUser?: (id: string) => Promise<boolean>; // Changed from number | string to string
 }
 
 const UserDialogs = ({

@@ -16,8 +16,8 @@ import { Trash2 } from "lucide-react";
 interface UserTableProps {
   users: User[];
   onEditUser: (user: User) => void;
-  onToggleStatus?: (id: number) => void; // Make this prop optional
-  onDeleteUser?: (id: number) => void;
+  onToggleStatus?: (id: string) => void; // Changed from number to string
+  onDeleteUser?: (id: string) => void; // Changed from number to string
   isLoading?: boolean;
 }
 
