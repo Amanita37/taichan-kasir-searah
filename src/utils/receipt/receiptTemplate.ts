@@ -11,74 +11,88 @@ interface ReceiptProps {
  * Generates the HTML content for a receipt
  */
 export function generateReceiptHTML({ transaction, transactionItems, settings }: ReceiptProps): string {
-  const receiptWidth = settings?.receipt_width || 48;
+  const receiptWidth = settings?.receipt_width || 48; // 58mm printer typically uses 48mm paper width
   
   return `
     <html>
       <head>
         <title>Struk Pembayaran</title>
+        <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
-          @media print {
-            @page {
-              margin: 0;
-              padding: 0;
-              size: ${receiptWidth}mm auto;
-            }
-            body {
-              margin: 0;
-              padding: 0;
-              width: ${receiptWidth}mm;
-              font-family: 'Courier New', monospace;
-              font-size: 12px;
-              font-weight: bold !important;
-              -webkit-print-color-adjust: exact;
-              print-color-adjust: exact;
-            }
-            * {
-              font-weight: bold !important;
-            }
+          @page {
+            margin: 0;
+            padding: 0;
+            size: ${receiptWidth}mm auto;
           }
+          
           body {
             font-family: 'Courier New', monospace;
-            font-size: 12px;
-            padding: 0;
+            font-size: 10px;
+            padding: 2mm;
             margin: 0;
-            width: ${receiptWidth}mm;
+            width: ${receiptWidth - 4}mm; /* Account for padding */
             font-weight: bold;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+            color-adjust: exact;
           }
+          
           .receipt {
             width: 100%;
             max-width: 100%;
           }
+          
           .header {
             text-align: center;
-            margin-bottom: 10px;
+            margin-bottom: 6px;
           }
+          
           .title {
-            font-size: 14px;
+            font-size: 12px;
             font-weight: bold;
           }
+          
           .divider {
             border-top: 1px dashed #000;
-            margin: 10px 0;
+            margin: 6px 0;
           }
-          .item {
+          
+          .flex {
             display: flex;
             justify-content: space-between;
           }
+          
           .item-detail {
             display: flex;
             flex-direction: column;
           }
-          .total {
+          
+          .font-medium, .font-bold {
             font-weight: bold;
-            margin-top: 10px;
           }
+          
+          .text-sm {
+            font-size: 9px;
+          }
+          
+          .space-y-1 > * + * {
+            margin-top: 3px;
+          }
+          
+          .space-y-2 > * + * {
+            margin-top: 6px;
+          }
+          
           .footer {
             text-align: center;
-            margin-top: 10px;
-            font-size: 10px;
+            margin-top: 6px;
+            font-size: 9px;
+          }
+          
+          /* Ensure all text is slightly bold for thermal printers */
+          * {
+            font-weight: 600 !important;
           }
         </style>
       </head>
@@ -92,21 +106,21 @@ export function generateReceiptHTML({ transaction, transactionItems, settings }:
           
           <div class="divider"></div>
           
-          <div class="text-sm">
-            <div class="flex justify-between">
+          <div>
+            <div class="flex">
               <span>No. Transaksi:</span>
               <span>${transaction?.transaction_number}</span>
             </div>
-            <div class="flex justify-between">
+            <div class="flex">
               <span>Tanggal:</span>
               <span>${formatDate(transaction?.created_at)}</span>
             </div>
-            <div class="flex justify-between">
+            <div class="flex">
               <span>Kasir:</span>
               <span>${transaction?.cashier_name}</span>
             </div>
             ${transaction?.customer_name ? `
-            <div class="flex justify-between">
+            <div class="flex">
               <span>Pelanggan:</span>
               <span>${transaction?.customer_name}</span>
             </div>
@@ -115,9 +129,9 @@ export function generateReceiptHTML({ transaction, transactionItems, settings }:
           
           <div class="divider"></div>
           
-          <div class="items space-y-2">
+          <div class="space-y-2">
             ${transactionItems.map((item) => `
-              <div class="flex justify-between">
+              <div class="flex">
                 <div>
                   <div>${item.product_name}</div>
                   <div class="text-sm">${formatCurrency(item.price)} x ${item.quantity}</div>
@@ -131,16 +145,16 @@ export function generateReceiptHTML({ transaction, transactionItems, settings }:
           
           <div class="divider"></div>
           
-          <div class="totals space-y-1">
-            <div class="flex justify-between">
+          <div class="space-y-1">
+            <div class="flex">
               <span>Total:</span>
               <span class="font-bold">${formatCurrency(transaction?.total)}</span>
             </div>
-            <div class="flex justify-between">
+            <div class="flex">
               <span>Pembayaran (${transaction?.payment_method}):</span>
               <span>${formatCurrency(transaction?.payment_amount)}</span>
             </div>
-            <div class="flex justify-between">
+            <div class="flex">
               <span>Kembalian:</span>
               <span>${formatCurrency(Number(transaction?.payment_amount) - Number(transaction?.total))}</span>
             </div>
@@ -148,110 +162,134 @@ export function generateReceiptHTML({ transaction, transactionItems, settings }:
           
           <div class="divider"></div>
           
-          <div class="footer text-center text-sm">
+          <div class="footer">
             <p>${settings?.receipt_footer || "Terima kasih atas kunjungan Anda!"}</p>
           </div>
         </div>
-        <script>
-          ${generatePrintScript()}
-        </script>
+        ${generatePrintScript()}
       </body>
     </html>
   `;
 }
 
 /**
- * Generates the JavaScript needed for printing
+ * Generates the JavaScript needed for printing with better compatibility
  */
 function generatePrintScript(): string {
   return `
-    // Improved Android printing with better reliability
-    function detectPrintEnvironment() {
-      const userAgent = navigator.userAgent.toLowerCase();
-      if (userAgent.includes('android')) {
-        return 'android';
-      } else if (userAgent.includes('ios') || userAgent.includes('iphone') || userAgent.includes('ipad')) {
-        return 'ios';
-      } else {
-        return 'desktop';
+    <script>
+      // Improved printing with better compatibility for thermal printers
+      function detectPrinterType() {
+        const userAgent = navigator.userAgent.toLowerCase();
+        if (userAgent.includes('android')) {
+          return 'android-thermal';
+        } else if (userAgent.includes('windows')) {
+          return 'windows';
+        } else if (userAgent.includes('ios') || userAgent.includes('iphone') || userAgent.includes('ipad')) {
+          return 'ios';
+        } else {
+          return 'generic';
+        }
       }
-    }
-
-    // Force content to be fully loaded before printing
-    function isDocumentReady() {
-      return document.readyState === 'complete';
-    }
-    
-    let printAttempts = 0;
-    const MAX_PRINT_ATTEMPTS = 3;
-    
-    function handlePrint() {
-      try {
-        if (!isDocumentReady()) {
-          if (printAttempts < MAX_PRINT_ATTEMPTS) {
-            printAttempts++;
-            console.log("Document not fully loaded, waiting...", printAttempts);
+      
+      // Wait for document to fully load
+      function isDocumentReady() {
+        return document.readyState === 'complete';
+      }
+      
+      // Main print handler with retries and thermal printer support
+      function handlePrint() {
+        try {
+          if (!isDocumentReady()) {
+            console.log("Document not fully loaded, waiting...");
             setTimeout(handlePrint, 500);
             return;
           }
-        }
-        
-        const env = detectPrintEnvironment();
-        console.log("Print environment detected:", env);
-        
-        if (env === 'android') {
-          // For Android WebView
-          if (typeof Android !== 'undefined' && Android !== null) {
-            console.log("Using Android WebView printing");
+          
+          const printerType = detectPrinterType();
+          console.log("Printer type detected:", printerType);
+          
+          // Handle Android thermal printers (like POS-58)
+          if (printerType === 'android-thermal') {
+            console.log("Using Android thermal printer handling");
             
-            try {
-              // Set timeout for Android WebView to ensure DOM is fully rendered
-              setTimeout(() => {
-                if (typeof Android.printPage === 'function') {
-                  console.log("Executing Android.printPage");
+            // Check if Android bridge is available (for WebView integration)
+            if (typeof Android !== 'undefined' && Android !== null) {
+              console.log("Android interface detected");
+              
+              try {
+                // Try different Android interfaces based on what's available
+                if (typeof Android.printESCPOS === 'function') {
+                  // Special function for ESC/POS protocol used by thermal printers
+                  console.log("Using Android.printESCPOS");
+                  Android.printESCPOS(document.documentElement.outerHTML);
+                } else if (typeof Android.printHTML === 'function') {
+                  console.log("Using Android.printHTML");
+                  Android.printHTML(document.documentElement.outerHTML);
+                } else if (typeof Android.printPage === 'function') {
+                  console.log("Using Android.printPage");
                   Android.printPage();
                 } else if (typeof Android.print === 'function') {
-                  console.log("Executing Android.print");
+                  console.log("Using Android.print");
                   Android.print();
                 } else {
-                  console.log("Falling back to window.print for Android");
+                  // Fallback to standard printing
+                  console.log("No Android printing interface found, using standard print");
                   window.print();
                 }
-              }, 1000);
-            } catch (androidError) {
-              console.error("Android printing error:", androidError);
-              alert("Gagal mencetak struk. Coba lagi dengan menekan tombol print manual.");
+              } catch (androidError) {
+                console.error("Android printing error:", androidError);
+                alert("Gagal mencetak: " + androidError.message);
+              }
+            } else {
+              // No Android interface, try standard print
+              console.log("No Android interface detected, using standard print");
+              window.print();
             }
-          } else {
-            // Standard printing if no Android interface
-            console.log("No Android interface found, using standard print");
-            setTimeout(() => window.print(), 1000);
+          } 
+          // Handle Windows printers
+          else if (printerType === 'windows') {
+            console.log("Using Windows printing");
+            // Give Windows some extra time to prepare the print
+            setTimeout(() => {
+              try {
+                window.print();
+              } catch (error) {
+                console.error("Windows print error:", error);
+                alert("Gagal mencetak: " + error.message);
+              }
+            }, 500);
+          } 
+          // Default print method
+          else {
+            console.log("Using standard printing");
+            window.print();
           }
-        } else {
-          // Standard printing for desktop and iOS
-          console.log("Using standard print method");
-          setTimeout(() => window.print(), 800);
+          
+          // In case of success, close window after a delay
+          setTimeout(() => {
+            console.log("Print operation completed, closing window");
+            window.close();
+          }, 2000);
+          
+        } catch (e) {
+          console.error("Print error:", e);
+          alert("Terjadi kesalahan saat mencetak: " + e.message);
         }
-        
-        // Delay closing to ensure print completes
-        setTimeout(() => {
-          console.log("Print operation completed");
-          window.close();
-        }, 3000);
-        
-      } catch(e) {
-        console.error("Print error:", e);
-        // Don't close window on error to allow manual printing
-        alert("Terjadi kesalahan saat mencetak: " + e.message + " - Silakan coba mencetak secara manual.");
       }
-    }
-    
-    // Wait longer for Android to ensure content rendering
-    if (detectPrintEnvironment() === 'android') {
-      console.log("Android detected, extra delay for content rendering");
-      setTimeout(handlePrint, 1500);
-    } else {
-      setTimeout(handlePrint, 800);
-    }
+      
+      // Start print process with appropriate delay
+      const printerType = detectPrinterType();
+      if (printerType === 'android-thermal') {
+        console.log("Applying longer delay for Android thermal printer");
+        setTimeout(handlePrint, 1200);
+      } else if (printerType === 'windows') {
+        console.log("Applying medium delay for Windows");
+        setTimeout(handlePrint, 1000);
+      } else {
+        console.log("Using standard delay");
+        setTimeout(handlePrint, 800);
+      }
+    </script>
   `;
 }

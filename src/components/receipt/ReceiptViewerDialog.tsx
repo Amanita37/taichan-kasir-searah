@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Printer } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ReceiptViewerDialogProps {
   open: boolean;
@@ -125,16 +126,18 @@ const ReceiptViewerDialog = ({
           </div>
         ) : (
           <>
-            <div className="py-4">
-              <ReceiptContent
-                ref={receiptRef}
-                transaction={transaction}
-                transactionItems={transactionItems}
-                settings={settings}
-              />
-            </div>
+            <ScrollArea className="h-[400px] max-h-[60vh] overflow-auto">
+              <div className="py-4 px-1">
+                <ReceiptContent
+                  ref={receiptRef}
+                  transaction={transaction}
+                  transactionItems={transactionItems}
+                  settings={settings}
+                />
+              </div>
+            </ScrollArea>
             
-            <DialogFooter>
+            <DialogFooter className="sticky bottom-0 pt-4 bg-background">
               <Button 
                 variant="outline" 
                 className="w-full flex items-center gap-2"
