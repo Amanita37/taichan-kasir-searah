@@ -157,7 +157,7 @@ export const printReceipt = ({ transaction, transactionItems, settings }: PrintR
             </div>
           </div>
           <script>
-            // Improved printing function with proper error handling
+            // Improved Android printing with better reliability
             function detectPrintEnvironment() {
               const userAgent = navigator.userAgent.toLowerCase();
               if (userAgent.includes('android')) {
@@ -169,64 +169,82 @@ export const printReceipt = ({ transaction, transactionItems, settings }: PrintR
               }
             }
 
+            // Force content to be fully loaded before printing
+            function isDocumentReady() {
+              return document.readyState === 'complete';
+            }
+            
+            let printAttempts = 0;
+            const MAX_PRINT_ATTEMPTS = 3;
+            
             function handlePrint() {
               try {
+                if (!isDocumentReady()) {
+                  if (printAttempts < MAX_PRINT_ATTEMPTS) {
+                    printAttempts++;
+                    console.log("Document not fully loaded, waiting...", printAttempts);
+                    setTimeout(handlePrint, 500);
+                    return;
+                  }
+                }
+                
                 const env = detectPrintEnvironment();
                 console.log("Print environment detected:", env);
                 
                 if (env === 'android') {
                   // For Android WebView
                   if (typeof Android !== 'undefined' && Android !== null) {
-                    // Try specific Android printing method
                     console.log("Using Android WebView printing");
                     
                     try {
-                      // First option: Use Android.printPage if available
-                      if (typeof Android.printPage === 'function') {
-                        Android.printPage();
-                        console.log("Android.printPage executed");
-                      } 
-                      // Second option: Use Android.print if available
-                      else if (typeof Android.print === 'function') {
-                        Android.print();
-                        console.log("Android.print executed");
-                      } 
-                      // Last resort: Use WebView print
-                      else {
-                        console.log("No specific Android print method found, using window.print");
-                        window.print();
-                      }
+                      // Set timeout for Android WebView to ensure DOM is fully rendered
+                      setTimeout(() => {
+                        if (typeof Android.printPage === 'function') {
+                          console.log("Executing Android.printPage");
+                          Android.printPage();
+                        } else if (typeof Android.print === 'function') {
+                          console.log("Executing Android.print");
+                          Android.print();
+                        } else {
+                          console.log("Falling back to window.print for Android");
+                          window.print();
+                        }
+                      }, 1000);
                     } catch (androidError) {
                       console.error("Android printing error:", androidError);
-                      // Fallback to standard printing
-                      window.print();
+                      alert("Gagal mencetak struk. Coba lagi dengan menekan tombol print manual.");
                     }
                   } else {
                     // Standard printing if no Android interface
                     console.log("No Android interface found, using standard print");
-                    window.print();
+                    setTimeout(() => window.print(), 1000);
                   }
                 } else {
                   // Standard printing for desktop and iOS
                   console.log("Using standard print method");
-                  window.print();
+                  setTimeout(() => window.print(), 800);
                 }
                 
                 // Delay closing to ensure print completes
                 setTimeout(() => {
                   console.log("Print operation completed");
                   window.close();
-                }, 1000);
+                }, 3000);
                 
               } catch(e) {
                 console.error("Print error:", e);
                 // Don't close window on error to allow manual printing
-                alert("Print error: " + e.message + " - Please try printing manually.");
+                alert("Terjadi kesalahan saat mencetak: " + e.message + " - Silakan coba mencetak secara manual.");
               }
             }
             
-            // Wait a bit longer before trying to print to ensure everything is loaded
-            setTimeout(handlePrint, 800);
+            // Wait longer for Android to ensure content rendering
+            if (detectPrintEnvironment() === 'android') {
+              console.log("Android detected, extra delay for content rendering");
+              setTimeout(handlePrint, 1500);
+            } else {
+              setTimeout(handlePrint, 800);
+            }
           </script>
         </body>
       </html>
