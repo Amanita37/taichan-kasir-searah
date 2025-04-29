@@ -5,130 +5,67 @@ interface PrintReceiptProps {
   transaction: any;
   transactionItems: any[];
   settings: any;
-  retryCount?: number;
 }
 
 /**
- * Prints a receipt with better support for thermal printers like POS-58
+ * Prints a receipt by opening a new window with the receipt HTML
  */
-export const printReceipt = async ({ 
-  transaction, 
-  transactionItems, 
-  settings,
-  retryCount = 0
-}: PrintReceiptProps) => {
+export const printReceipt = ({ transaction, transactionItems, settings }: PrintReceiptProps) => {
   try {
-    // Generate receipt HTML first
+    const printWindow = window.open('', '', 'height=600,width=800');
+    if (!printWindow) {
+      console.error("Popup blocker mungkin mencegah pencetakan.");
+      return;
+    }
+    
+    // Generate receipt HTML
     const receiptHTML = generateReceiptHTML({ transaction, transactionItems, settings });
     
-    // Check if we're in an Android WebView with printer support
-    const isAndroidPrintSupported = window.navigator.userAgent.includes("Android") && 
-      typeof window.Android !== 'undefined' && 
-      (window.Android.printHTML || window.Android.printPage || window.Android.print);
-
-    // For Android with direct printer support
-    if (isAndroidPrintSupported) {
-      console.log("Using Android bridge for direct printing");
-      try {
-        if (typeof window.Android.printHTML === 'function') {
-          window.Android.printHTML(receiptHTML);
-        } else if (typeof window.Android.printPage === 'function') {
-          // Write to a temporary document first
-          const printDoc = window.open('about:blank', '_blank');
-          if (printDoc) {
-            printDoc.document.write(receiptHTML);
-            printDoc.document.close();
-            await new Promise(resolve => setTimeout(resolve, 500)); // Wait for rendering
-            window.Android.printPage();
-            setTimeout(() => printDoc.close(), 1000);
-          }
-        } else if (typeof window.Android.print === 'function') {
-          window.Android.print();
-        }
-        return;
-      } catch (androidError) {
-        console.error("Android print error:", androidError);
-        // Fall through to regular print method
-      }
-    }
-
-    // For regular browsers/printers
-    const printWindow = window.open('', '_blank', 'height=600,width=800');
-    if (!printWindow) {
-      if (retryCount < 3) {
-        // Retry if popup was blocked
-        console.log(`Retrying print (attempt ${retryCount + 1})`);
-        return printReceipt({ 
-          transaction, 
-          transactionItems, 
-          settings, 
-          retryCount: retryCount + 1 
-        });
-      }
-      throw new Error("Popup blocked. Please allow popups for this site.");
-    }
-
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Receipt</title>
-          <meta charset="utf-8">
-          <meta http-equiv="X-UA-Compatible" content="IE=edge">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
-          <style>
-            @media print {
-              body { margin: 0; padding: 0; }
-              @page { margin: 0; size: 80mm auto; }
-            }
-            body {
-              font-family: 'Arial Narrow', Arial, sans-serif;
-              font-size: 12px;
-              width: 80mm;
-              margin: 0;
-              padding: 0;
-            }
-          </style>
-        </head>
-        <body onload="window.print()">
-          ${receiptHTML}
-        </body>
-      </html>
-    `);
+    // Write HTML to the print window
+    printWindow.document.write(receiptHTML);
     printWindow.document.close();
-
-    // Fallback in case onload print doesn't work
-    const printFallback = () => {
-      try {
-        printWindow.print();
-        setTimeout(() => {
-          if (!printWindow.closed) {
-            printWindow.close();
-          }
-        }, 1000);
-      } catch (e) {
-        console.error("Print fallback error:", e);
-      }
-    };
-
-    // Handle print dialog for POS printers
-    printWindow.addEventListener('afterprint', () => {
-      setTimeout(() => printWindow.close(), 500);
-    });
-
-    // Fallback timeout if afterprint doesn't fire
+    
+    console.log("Print window opened successfully");
+    
+    // Give the window some time to load fonts and render before printing
     setTimeout(() => {
-      if (!printWindow.closed) {
-        printFallback();
+      try {
+        const env = detectPrintEnvironment();
+        console.log(`Detected print environment: ${env}`);
+        
+        // For ESC/POS printers like POS-58, we need a different approach
+        if (window.navigator.userAgent.includes("Android") && typeof window.Android !== 'undefined') {
+          console.log("Using Android bridge for POS printer");
+          // Android WebView interface for thermal printer
+          if (typeof window.Android.printHTML === 'function') {
+            window.Android.printHTML(receiptHTML);
+          } else if (typeof window.Android.printPage === 'function') {
+            window.Android.printPage();
+          } else if (typeof window.Android.print === 'function') {
+            window.Android.print();
+          } else {
+            printWindow.print();
+          }
+        } else {
+          // For Windows and other operating systems
+          printWindow.print();
+        }
+      } catch (printError) {
+        console.error("Error during print operation:", printError);
+        // Keep the window open if there's an error, so the user can manually print
+        return;
       }
-    }, 3000);
-
+      
+      // Close the window after successful printing with a delay
+      setTimeout(() => printWindow.close(), 1000);
+    }, 1000);
+    
   } catch (error) {
     console.error("Print error:", error);
-    throw error;
   }
 };
 
+// Add this to the global window type
 declare global {
   interface Window {
     Android?: {
