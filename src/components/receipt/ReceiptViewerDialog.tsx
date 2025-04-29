@@ -30,8 +30,8 @@ const ReceiptContent = forwardRef<HTMLDivElement, { transaction: any; transactio
       <div className="receipt border rounded-md p-4" ref={ref}>
         <div className="header text-center">
           <div className="title text-lg font-bold">{settings?.store_name || "Taichan Searah"}</div>
-          <div className="text-sm">{settings?.store_address || "Jl. Contoh No. 123, Jakarta"}</div>
-          <div className="text-sm">{settings?.store_phone || "(021) 123-4567"}</div>
+          <div className="text-sm">{settings?.store_address || "Jl. Wahid Hasyim Ruko Blok B3, Jembatan 3 - Kota Palu"}</div>
+          <div className="text-sm">{settings?.store_phone || "0822 2324 4494"}</div>
         </div>
         
         <div className="divider border-t border-dashed my-4"></div>
