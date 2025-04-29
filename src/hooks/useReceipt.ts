@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useTransactions } from "@/hooks/useTransactions";
 import { useSettings } from "@/hooks/useSettings";
-import { printReceipt } from "@/utils/receiptPrinter";
+import { printReceipt } from "@/utils/receipt";
 import { useTransactionItems } from "@/hooks/useTransactionItems";
 import { useTransactionFilter } from "@/hooks/useTransactionFilter";
 

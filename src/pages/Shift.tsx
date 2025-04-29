@@ -27,7 +27,7 @@ import { formatCurrency } from "@/lib/utils";
 import { Pagination } from "@/components/ui/pagination";
 import ReceiptViewerDialog from "@/components/receipt/ReceiptViewerDialog";
 import { useSettings } from "@/hooks/useSettings";
-import { printReceipt } from "@/utils/receiptPrinter";
+import { printReceipt } from "@/utils/receipt";
 
 const DailySaleReport = () => {
   const [searchQuery, setSearchQuery] = useState("");
