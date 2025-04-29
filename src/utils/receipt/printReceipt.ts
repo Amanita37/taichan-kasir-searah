@@ -34,22 +34,19 @@ export const printReceipt = ({ transaction, transactionItems, settings }: PrintR
         console.log(`Detected print environment: ${env}`);
         
         // For ESC/POS printers like POS-58, we need a different approach
-       if (typeof window.Android !== 'undefined' && typeof window.Android.printESCPOS === 'function') {
-  console.log("Using Android.printESCPOS for direct printing");
-  const escPosCommands = `
-    \x1b@      // Initialize the printer
-    \x1b!\x38  // Set font size
-    Taichan Searah Receipt
-    \x1b!\x00  // Reset font size
-    Thank you for your purchase!
-    \x0a\x0a\x0a
-    \x1dV\x41  // Cut paper
-  `;
-  window.Android.printESCPOS(escPosCommands);
-} else {
-  console.log("Fallback to browser printing");
-  printWindow.print();
-}
+          if (window.navigator.userAgent.includes("Android") && typeof window.Android !== 'undefined') {
+          console.log("Using Android bridge for POS printer");
+          // Android WebView interface for thermal printer
+          if (typeof window.Android.printHTML === 'function') {
+            window.Android.printHTML(receiptHTML);
+          } else if (typeof window.Android.printPage === 'function') {
+            window.Android.printPage();
+          } else if (typeof window.Android.print === 'function') {
+            window.Android.print();
+          } else {
+            printWindow.print();
+          }
+        } else {
           // For Windows and other operating systems
           printWindow.print();
         }
