@@ -1,5 +1,5 @@
 import { generateReceiptHTML } from './receiptTemplate';
-import { detectPrintEnvironment } from './printEnvironment';
+import { detectPrintEnvironment, hasThermalPrinterSupport } from './printEnvironment';
 
 interface PrintReceiptProps {
   transaction: any;
@@ -16,76 +16,52 @@ export const printReceipt = ({ transaction, transactionItems, settings }: PrintR
     const env = detectPrintEnvironment();
     console.log(`Detected print environment: ${env}`);
     
-    // Android-specific direct printing logic
-    if (env === 'android' || env === 'android-thermal') {
-      console.log("Using direct Android printing method");
+    // Android-specific printing for thermal printers only
+    if (env === 'android-thermal') {
+      console.log("Using direct Android thermal printing method");
       
       // Generate receipt HTML
       const receiptHTML = generateReceiptHTML({ transaction, transactionItems, settings });
       
-      // Try to use Android WebView bridge if available
-      if (typeof window.Android !== 'undefined' && window.Android !== null) {
-        console.log("Using Android bridge for direct printing");
+      // Try to use Android WebView bridge if available for thermal printing
+      if (hasThermalPrinterSupport()) {
+        console.log("Using Android bridge for direct thermal printing");
         
         // Try different Android printing methods
-        if (typeof window.Android.printHTML === 'function') {
-          window.Android.printHTML(receiptHTML);
-          return;
-        } else if (typeof window.Android.printESCPOS === 'function') {
-          window.Android.printESCPOS(receiptHTML);
-          return;
-        } else if (typeof window.Android.printPage === 'function') {
-          // Create a hidden div to render the receipt
-          const tempDiv = document.createElement('div');
-          tempDiv.innerHTML = receiptHTML;
-          tempDiv.style.position = 'absolute';
-          tempDiv.style.left = '-9999px';
-          document.body.appendChild(tempDiv);
-          
-          // Call Android printPage method
-          window.Android.printPage();
-          
-          // Clean up
-          setTimeout(() => document.body.removeChild(tempDiv), 1000);
-          return;
-        } else if (typeof window.Android.print === 'function') {
-          window.Android.print();
-          return;
+        if (typeof window.Android !== 'undefined' && window.Android !== null) {
+          if (typeof window.Android.printHTML === 'function') {
+            window.Android.printHTML(receiptHTML);
+            return;
+          } else if (typeof window.Android.printESCPOS === 'function') {
+            window.Android.printESCPOS(receiptHTML);
+            return;
+          } else if (typeof window.Android.printPage === 'function') {
+            // Create a hidden div to render the receipt
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = receiptHTML;
+            tempDiv.style.position = 'absolute';
+            tempDiv.style.left = '-9999px';
+            document.body.appendChild(tempDiv);
+            
+            // Call Android printPage method
+            window.Android.printPage();
+            
+            // Clean up
+            setTimeout(() => document.body.removeChild(tempDiv), 1000);
+            return;
+          } else if (typeof window.Android.print === 'function') {
+            window.Android.print();
+            return;
+          }
         }
       }
-      
-      // Fallback for Android browser - use hidden iframe for direct printing
-      const iframe = document.createElement('iframe');
-      iframe.style.display = 'none';
-      document.body.appendChild(iframe);
-      
-      const iframeDoc = iframe.contentWindow?.document;
-      if (iframeDoc) {
-        iframeDoc.open();
-        iframeDoc.write(receiptHTML);
-        iframeDoc.close();
-        
-        setTimeout(() => {
-          try {
-            iframe.contentWindow?.print();
-            setTimeout(() => document.body.removeChild(iframe), 1000);
-          } catch (printError) {
-            console.error("Direct print error:", printError);
-            document.body.removeChild(iframe);
-            // Fallback to popup window as last resort
-            usePrintWindow(receiptHTML);
-          }
-        }, 500);
-      } else {
-        // If iframe method fails, fall back to popup window
-        document.body.removeChild(iframe);
-        usePrintWindow(receiptHTML);
-      }
-    } else {
-      // For Windows, iOS, desktop and other environments, use the traditional popup window
-      const receiptHTML = generateReceiptHTML({ transaction, transactionItems, settings });
-      usePrintWindow(receiptHTML);
     }
+    
+    // For all other environments (including regular Android browser),
+    // use the traditional popup window approach
+    const receiptHTML = generateReceiptHTML({ transaction, transactionItems, settings });
+    usePrintWindow(receiptHTML);
+    
   } catch (error) {
     console.error("Print error:", error);
   }
