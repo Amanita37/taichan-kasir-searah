@@ -1,3 +1,4 @@
+
 /**
  * Enhanced detection of the current print environment
  * Specifically improved for thermal printers like POS-58
