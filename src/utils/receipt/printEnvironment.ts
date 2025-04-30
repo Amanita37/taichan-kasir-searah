@@ -12,6 +12,19 @@ export function detectPrintEnvironment(): 'android' | 'android-thermal' | 'windo
     if (typeof window.Android !== 'undefined' && window.Android !== null) {
       return 'android-thermal';
     }
+    
+    // Check if we're using a browser that's likely connected to a thermal printer
+    // Common browser strings for devices used with ESC/POS printers
+    if (
+      userAgent.includes('pos') || 
+      userAgent.includes('printer') || 
+      userAgent.includes('thermal') ||
+      userAgent.includes('sunmi') ||
+      userAgent.includes('handheld')
+    ) {
+      return 'android-thermal';
+    }
+    
     return 'android';
   } 
   // Check for Windows specifically
@@ -48,7 +61,17 @@ export function hasThermalPrinterSupport(): boolean {
       typeof window.Android.print === 'function'
     );
   }
-  return false;
+  
+  // Also check user agent for common thermal printer integrations
+  const userAgent = navigator.userAgent.toLowerCase();
+  return (
+    userAgent.includes('pos') || 
+    userAgent.includes('printer') || 
+    userAgent.includes('thermal') ||
+    userAgent.includes('esc/pos') || 
+    userAgent.includes('escpos') ||
+    userAgent.includes('sunmi')
+  );
 }
 
 // Add this to global window type

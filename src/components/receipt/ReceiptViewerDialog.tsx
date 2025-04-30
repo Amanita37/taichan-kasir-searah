@@ -7,6 +7,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import { Printer } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
@@ -118,6 +119,9 @@ const ReceiptViewerDialog = ({
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>Detail Transaksi</DialogTitle>
+          <DialogDescription>
+            Preview struk transaksi sebelum dicetak
+          </DialogDescription>
         </DialogHeader>
         
         {isLoading ? (
@@ -125,8 +129,8 @@ const ReceiptViewerDialog = ({
             <p>Memuat detail transaksi...</p>
           </div>
         ) : (
-          <>
-            <ScrollArea className="h-[400px] max-h-[60vh] overflow-auto">
+          <div className="flex flex-col h-[calc(100vh-14rem)] max-h-[500px]">
+            <ScrollArea className="flex-grow overflow-auto pr-4">
               <div className="py-4 px-1">
                 <ReceiptContent
                   ref={receiptRef}
@@ -137,9 +141,9 @@ const ReceiptViewerDialog = ({
               </div>
             </ScrollArea>
             
-            <DialogFooter className="sticky bottom-0 pt-4 bg-background">
+            <DialogFooter className="mt-4 pt-4 border-t sticky bottom-0 bg-background">
               <Button 
-                variant="outline" 
+                variant="default" 
                 className="w-full flex items-center gap-2"
                 onClick={onPrint}
               >
@@ -147,7 +151,7 @@ const ReceiptViewerDialog = ({
                 Cetak Struk
               </Button>
             </DialogFooter>
-          </>
+          </div>
         )}
       </DialogContent>
     </Dialog>

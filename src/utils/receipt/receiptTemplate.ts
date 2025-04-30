@@ -5,13 +5,92 @@ interface ReceiptProps {
   transaction: any;
   transactionItems: any[];
   settings: any;
+  isLightPrint?: boolean;
 }
 
 /**
  * Generates the HTML content for a receipt
  */
-export function generateReceiptHTML({ transaction, transactionItems, settings }: ReceiptProps): string {
+export function generateReceiptHTML({ transaction, transactionItems, settings, isLightPrint = false }: ReceiptProps): string {
   const receiptWidth = settings?.receipt_width || 48; // 58mm printer typically uses 48mm paper width
+  
+  // Optimize CSS for ESC/POS thermal printers
+  const thermalPrinterStyles = isLightPrint ? `
+    @page {
+      margin: 0;
+      padding: 0;
+      size: ${receiptWidth}mm auto;
+    }
+    
+    body {
+      font-family: monospace;
+      font-size: 9px;
+      padding: 1mm;
+      margin: 0;
+      width: ${receiptWidth - 2}mm; /* Account for padding */
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      color-adjust: exact;
+    }
+    
+    /* Minimize borders and backgrounds for thermal printing */
+    .divider {
+      border-top: 1px dotted #000;
+      margin: 4px 0;
+      height: 1px;
+    }
+    
+    /* Ensure all text is slightly bold for thermal printers without being too heavy */
+    * {
+      font-weight: normal !important;
+      line-height: 1.1 !important;
+    }
+    
+    /* Reduce space between items for thermal printers */
+    .space-y-2 > * + * {
+      margin-top: 3px;
+    }
+    
+    .space-y-1 > * + * {
+      margin-top: 2px;
+    }
+  ` : `
+    @page {
+      margin: 0;
+      padding: 0;
+      size: ${receiptWidth}mm auto;
+    }
+    
+    body {
+      font-family: 'Courier New', monospace;
+      font-size: 10px;
+      padding: 2mm;
+      margin: 0;
+      width: ${receiptWidth - 4}mm; /* Account for padding */
+      font-weight: bold;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      color-adjust: exact;
+    }
+    
+    .divider {
+      border-top: 1px dashed #000;
+      margin: 6px 0;
+    }
+    
+    /* Ensure all text is slightly bold for thermal printers */
+    * {
+      font-weight: 600 !important;
+    }
+    
+    .space-y-2 > * + * {
+      margin-top: 6px;
+    }
+    
+    .space-y-1 > * + * {
+      margin-top: 3px;
+    }
+  `;
   
   return `
     <html>
@@ -20,23 +99,7 @@ export function generateReceiptHTML({ transaction, transactionItems, settings }:
         <meta charset="utf-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <style>
-          @page {
-            margin: 0;
-            padding: 0;
-            size: ${receiptWidth}mm auto;
-          }
-          
-          body {
-            font-family: 'Courier New', monospace;
-            font-size: 10px;
-            padding: 2mm;
-            margin: 0;
-            width: ${receiptWidth - 4}mm; /* Account for padding */
-            font-weight: bold;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-            color-adjust: exact;
-          }
+          ${thermalPrinterStyles}
           
           .receipt {
             width: 100%;
@@ -45,17 +108,12 @@ export function generateReceiptHTML({ transaction, transactionItems, settings }:
           
           .header {
             text-align: center;
-            margin-bottom: 6px;
+            margin-bottom: ${isLightPrint ? '4px' : '6px'};
           }
           
           .title {
-            font-size: 12px;
+            font-size: ${isLightPrint ? '10px' : '12px'};
             font-weight: bold;
-          }
-          
-          .divider {
-            border-top: 1px dashed #000;
-            margin: 6px 0;
           }
           
           .flex {
@@ -73,26 +131,13 @@ export function generateReceiptHTML({ transaction, transactionItems, settings }:
           }
           
           .text-sm {
-            font-size: 9px;
-          }
-          
-          .space-y-1 > * + * {
-            margin-top: 3px;
-          }
-          
-          .space-y-2 > * + * {
-            margin-top: 6px;
+            font-size: ${isLightPrint ? '8px' : '9px'};
           }
           
           .footer {
             text-align: center;
-            margin-top: 6px;
-            font-size: 9px;
-          }
-          
-          /* Ensure all text is slightly bold for thermal printers */
-          * {
-            font-weight: 600 !important;
+            margin-top: ${isLightPrint ? '4px' : '6px'};
+            font-size: ${isLightPrint ? '8px' : '9px'};
           }
         </style>
       </head>
@@ -166,7 +211,7 @@ export function generateReceiptHTML({ transaction, transactionItems, settings }:
             <p>${settings?.receipt_footer || "Terima kasih atas kunjungan Anda!"}</p>
           </div>
         </div>
-        ${generatePrintScript()}
+        ${generateOptimizedPrintScript(isLightPrint)}
       </body>
     </html>
   `;
@@ -175,14 +220,19 @@ export function generateReceiptHTML({ transaction, transactionItems, settings }:
 /**
  * Generates the JavaScript needed for printing with better compatibility
  */
-function generatePrintScript(): string {
+function generateOptimizedPrintScript(isLightPrint: boolean): string {
+  // For light printing (Android thermal printers), use faster timeout values
+  const initDelay = isLightPrint ? 300 : 800;
+  const printDelay = isLightPrint ? 200 : 500;
+  const closeDelay = isLightPrint ? 1000 : 2000;
+  
   return `
     <script>
       // Improved printing with better compatibility for thermal printers
       function detectPrinterType() {
         const userAgent = navigator.userAgent.toLowerCase();
         if (userAgent.includes('android')) {
-          return 'android-thermal';
+          return ${isLightPrint ? "'android-thermal'" : "'android'"};
         } else if (userAgent.includes('windows')) {
           return 'windows';
         } else if (userAgent.includes('ios') || userAgent.includes('iphone') || userAgent.includes('ipad')) {
@@ -202,7 +252,7 @@ function generatePrintScript(): string {
         try {
           if (!isDocumentReady()) {
             console.log("Document not fully loaded, waiting...");
-            setTimeout(handlePrint, 500);
+            setTimeout(handlePrint, ${printDelay});
             return;
           }
           
@@ -247,18 +297,16 @@ function generatePrintScript(): string {
               window.print();
             }
           } 
+          // Handle Android browser with optimized settings
+          else if (printerType === 'android') {
+            console.log("Using optimized Android printing");
+            // Use faster print call for Android
+            window.print();
+          }
           // Handle Windows printers
           else if (printerType === 'windows') {
             console.log("Using Windows printing");
-            // Give Windows some extra time to prepare the print
-            setTimeout(() => {
-              try {
-                window.print();
-              } catch (error) {
-                console.error("Windows print error:", error);
-                alert("Gagal mencetak: " + error.message);
-              }
-            }, 500);
+            window.print();
           } 
           // Default print method
           else {
@@ -270,7 +318,7 @@ function generatePrintScript(): string {
           setTimeout(() => {
             console.log("Print operation completed, closing window");
             window.close();
-          }, 2000);
+          }, ${closeDelay});
           
         } catch (e) {
           console.error("Print error:", e);
@@ -279,17 +327,7 @@ function generatePrintScript(): string {
       }
       
       // Start print process with appropriate delay
-      const printerType = detectPrinterType();
-      if (printerType === 'android-thermal') {
-        console.log("Applying longer delay for Android thermal printer");
-        setTimeout(handlePrint, 1200);
-      } else if (printerType === 'windows') {
-        console.log("Applying medium delay for Windows");
-        setTimeout(handlePrint, 1000);
-      } else {
-        console.log("Using standard delay");
-        setTimeout(handlePrint, 800);
-      }
+      setTimeout(handlePrint, ${initDelay});
     </script>
   `;
 }
