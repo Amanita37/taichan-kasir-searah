@@ -3,4 +3,3 @@
 export * from './printReceipt';
 export * from './receiptTemplate';
 export * from './printEnvironment';
-export * from './mobilePrint'; 
