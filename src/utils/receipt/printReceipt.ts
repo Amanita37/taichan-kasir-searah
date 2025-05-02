@@ -5,12 +5,22 @@ interface PrintReceiptProps {
   transaction: any;
   transactionItems: any[];
   settings: any;
+  paperWidth?: string; // Menambahkan properti untuk lebar kertas
+  printScale?: number; // Menambahkan properti untuk skala cetak
 }
 
 /**
  * Prints a receipt by opening a new window with the receipt HTML or directly printing on supported devices
+ * @param paperWidth - Width of the paper (e.g., '48mm', '80mm')
+ * @param printScale - Scale for printing (e.g., 90 for 90%)
  */
-export const printReceipt = ({ transaction, transactionItems, settings }: PrintReceiptProps) => {
+export const printReceipt = ({ 
+  transaction, 
+  transactionItems, 
+  settings,
+  paperWidth = '48mm', // Default lebar kertas 48mm
+  printScale = 90 // Default skala cetak 90%
+}: PrintReceiptProps) => {
   try {
     // Detect environment first to determine the best printing method
     const env = detectPrintEnvironment();
@@ -21,7 +31,9 @@ export const printReceipt = ({ transaction, transactionItems, settings }: PrintR
       transaction, 
       transactionItems, 
       settings,
-      isLightPrint: env === 'android' || env === 'android-thermal' // Use lighter printing for Android
+      isLightPrint: env === 'android' || env === 'android-thermal', // Use lighter printing for Android
+      paperWidth, // Meneruskan lebar kertas ke fungsi generateReceiptHTML
+      printScale // Meneruskan skala cetak ke fungsi generateReceiptHTML
     });
     
     // Android-specific printing for thermal printers only
@@ -35,10 +47,12 @@ export const printReceipt = ({ transaction, transactionItems, settings }: PrintR
         // Try different Android printing methods
         if (typeof window.Android !== 'undefined' && window.Android !== null) {
           if (typeof window.Android.printESCPOS === 'function') {
-            window.Android.printESCPOS(receiptHTML);
+            // Menambahkan konfigurasi untuk ukuran dan skala
+            window.Android.printESCPOS(receiptHTML, paperWidth, printScale);
             return true;
           } else if (typeof window.Android.printHTML === 'function') {
-            window.Android.printHTML(receiptHTML);
+            // Menambahkan konfigurasi untuk ukuran dan skala
+            window.Android.printHTML(receiptHTML, paperWidth, printScale);
             return true;
           } else if (typeof window.Android.printPage === 'function') {
             // Create a hidden div to render the receipt
@@ -46,6 +60,10 @@ export const printReceipt = ({ transaction, transactionItems, settings }: PrintR
             tempDiv.innerHTML = receiptHTML;
             tempDiv.style.position = 'absolute';
             tempDiv.style.left = '-9999px';
+            // Set ukuran dan skala pada elemen
+            tempDiv.style.width = paperWidth;
+            tempDiv.style.transform = `scale(${printScale/100})`;
+            tempDiv.style.transformOrigin = 'top left';
             document.body.appendChild(tempDiv);
             
             // Call Android printPage method
@@ -55,7 +73,23 @@ export const printReceipt = ({ transaction, transactionItems, settings }: PrintR
             setTimeout(() => document.body.removeChild(tempDiv), 1000);
             return true;
           } else if (typeof window.Android.print === 'function') {
+            // Menambahkan element style sebelum print
+            const styleEl = document.createElement('style');
+            styleEl.textContent = `
+              @media print {
+                @page {
+                  size: ${paperWidth} auto;
+                  margin: 0;
+                  scale: ${printScale}%;
+                }
+              }
+            `;
+            document.head.appendChild(styleEl);
+            
             window.Android.print();
+            
+            // Hapus style setelah print
+            setTimeout(() => document.head.removeChild(styleEl), 1000);
             return true;
           }
         }
@@ -71,8 +105,31 @@ export const printReceipt = ({ transaction, transactionItems, settings }: PrintR
         return false;
       }
       
-      // Write optimized HTML to the print window
-      printWindow.document.write(receiptHTML);
+      // Menambahkan style untuk ukuran dan skala
+      const printStyleSheet = `
+        <style>
+          @media print {
+            @page {
+              size: ${paperWidth} auto;
+              margin: 0;
+              scale: ${printScale}%;
+            }
+            body {
+              width: ${paperWidth};
+              margin: 0;
+              padding: 0;
+            }
+            .receipt-container {
+              width: 100%;
+              transform: scale(${printScale/100});
+              transform-origin: top left;
+            }
+          }
+        </style>
+      `;
+      
+      // Write optimized HTML to the print window with the style
+      printWindow.document.write(`<!DOCTYPE html><html><head>${printStyleSheet}</head><body><div class="receipt-container">${receiptHTML}</div></body></html>`);
       printWindow.document.close();
       
       console.log("Optimized print window opened for Android");
@@ -94,7 +151,7 @@ export const printReceipt = ({ transaction, transactionItems, settings }: PrintR
     }
     
     // For all other environments, use the traditional popup window approach
-    return usePrintWindow(receiptHTML);
+    return usePrintWindow(receiptHTML, paperWidth, printScale);
     
   } catch (error) {
     console.error("Print error:", error);
@@ -105,19 +162,45 @@ export const printReceipt = ({ transaction, transactionItems, settings }: PrintR
 /**
  * Helper function to handle printing via a popup window
  * Returns true if printing was initiated successfully
+ * @param receiptHTML - HTML content for the receipt
+ * @param paperWidth - Width of the paper
+ * @param printScale - Scale for printing
  */
-function usePrintWindow(receiptHTML: string): boolean {
+function usePrintWindow(receiptHTML: string, paperWidth: string = '48mm', printScale: number = 90): boolean {
   const printWindow = window.open('', '', 'height=600,width=800');
   if (!printWindow) {
     console.error("Popup blocker may be preventing printing.");
     return false;
   }
   
-  // Write HTML to the print window
-  printWindow.document.write(receiptHTML);
+  // Menambahkan style untuk ukuran dan skala
+  const printStyleSheet = `
+    <style>
+      @media print {
+        @page {
+          size: ${paperWidth} auto;
+          margin: 0;
+          scale: ${printScale}%;
+        }
+        body {
+          width: ${paperWidth};
+          margin: 0;
+          padding: 0;
+        }
+        .receipt-container {
+          width: 100%;
+          transform: scale(${printScale/100});
+          transform-origin: top left;
+        }
+      }
+    </style>
+  `;
+  
+  // Write HTML to the print window with the style
+  printWindow.document.write(`<!DOCTYPE html><html><head>${printStyleSheet}</head><body><div class="receipt-container">${receiptHTML}</div></body></html>`);
   printWindow.document.close();
   
-  console.log("Print window opened successfully");
+  console.log(`Print window opened successfully with paper width: ${paperWidth}, scale: ${printScale}%`);
   
   // Give the window some time to load fonts and render before printing
   setTimeout(() => {
@@ -136,12 +219,12 @@ function usePrintWindow(receiptHTML: string): boolean {
   return true;
 }
 
-// Add this to the global window type
+// Update the Android interface to include parameters for paper size and scale
 declare global {
   interface Window {
     Android?: {
-      printESCPOS?: (html: string) => void;
-      printHTML?: (html: string) => void;
+      printESCPOS?: (html: string, paperWidth?: string, scale?: number) => void;
+      printHTML?: (html: string, paperWidth?: string, scale?: number) => void;
       printPage?: () => void;
       print?: () => void;
     };
