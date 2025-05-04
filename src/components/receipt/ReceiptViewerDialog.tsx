@@ -9,7 +9,7 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Printer } from "lucide-react";
+import { Loader2, Printer } from "lucide-react";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -21,6 +21,7 @@ interface ReceiptViewerDialogProps {
   isLoading: boolean;
   settings: any;
   onPrint: () => void;
+  isPrinting?: boolean;
 }
 
 const ReceiptContent = forwardRef<HTMLDivElement, { transaction: any; transactionItems: any[]; settings: any }>(
@@ -111,6 +112,7 @@ const ReceiptViewerDialog = ({
   isLoading,
   settings,
   onPrint,
+  isPrinting = false,
 }: ReceiptViewerDialogProps) => {
   const receiptRef = useRef<HTMLDivElement>(null);
 
@@ -146,9 +148,19 @@ const ReceiptViewerDialog = ({
                 variant="default" 
                 className="w-full flex items-center gap-2"
                 onClick={onPrint}
+                disabled={isPrinting}
               >
-                <Printer className="h-4 w-4" />
-                Cetak Struk
+                {isPrinting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Menyiapkan...
+                  </>
+                ) : (
+                  <>
+                    <Printer className="h-4 w-4" />
+                    Cetak Struk
+                  </>
+                )}
               </Button>
             </DialogFooter>
           </div>

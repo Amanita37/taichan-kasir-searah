@@ -8,7 +8,7 @@ interface PrintReceiptProps {
   settings: any;
   paperWidth?: string;
   printScale?: number;
-  bypassPreview?: boolean; // New option to bypass PDF preview
+  bypassPreview?: boolean;
 }
 
 /**
@@ -23,7 +23,7 @@ export const printReceipt = ({
   settings,
   paperWidth = '48mm',
   printScale = 90,
-  bypassPreview = true // Default to bypass preview for better mobile experience
+  bypassPreview = true
 }: PrintReceiptProps) => {
   try {
     // Detect environment first to determine the best printing method
@@ -39,13 +39,6 @@ export const printReceipt = ({
       paperWidth,
       printScale
     });
-    
-    // MOBILE OPTIMIZED PRINTING
-    // ---------------------------------------------
-    if (env === 'android' || env === 'android-thermal' || env === 'ios') {
-      console.log("Using mobile-optimized printing method");
-      return useIframeDirectPrintMethod(receiptHTML, paperWidth, printScale, bypassPreview);
-    }
     
     // ANDROID-SPECIFIC THERMAL PRINTER HANDLING
     // ---------------------------------------------
@@ -105,6 +98,13 @@ export const printReceipt = ({
       }
     }
     
+    // MOBILE OPTIMIZED PRINTING (Android and iOS)
+    // ---------------------------------------------
+    if (env === 'android' || env === 'ios') {
+      console.log("Using optimized mobile printing");
+      return useOptimizedMobilePrinting(receiptHTML, paperWidth, printScale);
+    }
+    
     // For all other environments, use the traditional popup window approach
     return usePrintWindow(receiptHTML, paperWidth, printScale);
     
@@ -115,25 +115,22 @@ export const printReceipt = ({
 };
 
 /**
- * Uses an iframe approach to bypass the PDF preview loading issue
- * This method is more reliable on mobile browsers
+ * Optimized mobile printing without preview, specifically enhanced for Android devices
  */
-function useIframeDirectPrintMethod(
+function useOptimizedMobilePrinting(
   receiptHTML: string, 
   paperWidth: string = '48mm', 
-  printScale: number = 90,
-  bypassPreview: boolean = true
+  printScale: number = 90
 ): boolean {
   try {
-    // Remove any existing print frames
-    const existingFrame = document.getElementById('direct-print-frame');
+    // Create a hidden iframe for printing
+    const existingFrame = document.getElementById('mobile-print-frame');
     if (existingFrame) {
       document.body.removeChild(existingFrame);
     }
     
-    // Create a hidden iframe for printing
     const printFrame = document.createElement('iframe');
-    printFrame.id = 'direct-print-frame';
+    printFrame.id = 'mobile-print-frame';
     printFrame.style.position = 'fixed';
     printFrame.style.right = '-9999px';
     printFrame.style.bottom = '-9999px';
@@ -142,104 +139,84 @@ function useIframeDirectPrintMethod(
     printFrame.style.border = '0';
     document.body.appendChild(printFrame);
     
-    // Get the iframe document
     const frameDoc = printFrame.contentWindow?.document;
     if (!frameDoc) {
       console.error("Could not access iframe document");
       return false;
     }
     
-    // Open the document and write the optimized printing HTML
+    // Write an optimized HTML document for Android printing
     frameDoc.open();
-    
-    // Add style that forces direct printing and bypasses preview if requested
-    const bypassPreviewStyle = bypassPreview ? `
-      @media print {
-        html, body {
-          -webkit-print-color-adjust: exact !important;
-          color-adjust: exact !important;
-          print-color-adjust: exact !important;
-        }
-        
-        /* Force direct printing (experimental) */
-        @page {
-          margin: 0;
-          size: ${paperWidth} auto;
-        }
-      }
-      
-      /* iOS print optimization */
-      @supports (-webkit-overflow-scrolling: touch) {
-        body {
-          width: ${paperWidth};
-          margin: 0;
-          padding: 0;
-          -webkit-text-size-adjust: none;
-        }
-      }
-    ` : '';
-    
-    // Write enhanced HTML with direct print script
     frameDoc.write(`
       <!DOCTYPE html>
       <html>
         <head>
           <title>Print Receipt</title>
           <meta charset="utf-8">
-          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0">
           <style>
-            ${bypassPreviewStyle}
+            /* Aggressive print optimization for Android */
+            @media print {
+              @page {
+                size: ${paperWidth} auto;
+                margin: 0;
+              }
+              
+              body {
+                -webkit-print-color-adjust: exact !important;
+                color-adjust: exact !important;
+                print-color-adjust: exact !important;
+                margin: 0;
+                padding: 0;
+              }
+            }
+            
+            /* Base styles */
+            body {
+              font-family: monospace;
+              width: ${paperWidth};
+              margin: 0;
+              padding: 0;
+              -webkit-text-size-adjust: none;
+              background-color: white;
+            }
           </style>
         </head>
         <body>
           ${receiptHTML}
           <script>
-            // Optimized print script with direct printing
             (function() {
-              // Use very short timeout to avoid mobile browser throttling
+              // Very short timeout to prevent browser throttling
               setTimeout(function() {
                 try {
-                  // Force direct printing - this will bypass preview on many mobile browsers
+                  window.focus();
                   window.print();
                   
-                  // iOS Safari needs focus to properly trigger print
-                  window.focus();
-                  
-                  // Clean up after a delay
+                  // Clean up after printing
                   setTimeout(function() {
-                    try {
-                      // Attempt to close iframe connection
-                      window.close();
-                    } catch (e) {
-                      console.log("Print complete");
-                    }
-                  }, 500);
+                    window.close();
+                  }, 300);
                 } catch (e) {
                   console.error("Print error:", e);
                 }
-              }, 100);
+              }, 200);
             })();
           </script>
         </body>
       </html>
     `);
-    
     frameDoc.close();
     
-    // Make sure the frame is removed after printing
+    // Clean up after a short delay
     setTimeout(() => {
-      try {
-        if (document.getElementById('direct-print-frame')) {
-          document.body.removeChild(printFrame);
-        }
-      } catch (e) {
-        console.log("Frame cleanup error (non-critical):", e);
+      if (document.getElementById('mobile-print-frame')) {
+        document.body.removeChild(printFrame);
       }
-    }, 5000);
+    }, 3000);
     
     return true;
   } catch (error) {
-    console.error("Direct iframe print error:", error);
+    console.error("Mobile print error:", error);
     return false;
   }
 }

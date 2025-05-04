@@ -13,6 +13,7 @@ export const useReceipt = () => {
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
   const [currentTransaction, setCurrentTransaction] = useState<any | null>(null);
   const [password, setPassword] = useState("");
+  const [isPrinting, setIsPrinting] = useState(false);
   
   const { toast } = useToast();
   const { transactions, isLoadingTransactions, deleteTransaction } = useTransactions();
@@ -20,9 +21,10 @@ export const useReceipt = () => {
   const { transactionItems, isLoadingItems, fetchTransactionItems } = useTransactionItems();
   const { searchQuery, setSearchQuery, filteredTransactions } = useTransactionFilter(transactions);
 
+  // View a transaction and load its items
   const viewTransaction = async (transaction: any) => {
     setCurrentTransaction(transaction);
-    const items = await fetchTransactionItems(transaction.id);
+    await fetchTransactionItems(transaction.id);
     setIsViewDialogOpen(true);
   };
 
@@ -72,21 +74,59 @@ export const useReceipt = () => {
     setIsPasswordDialogOpen(true);
   };
 
+  // Enhanced print function with loading state and error handling
   const handlePrint = () => {
-    if (currentTransaction && transactionItems) {
-      // Move the toast outside of the printReceipt function
+    if (!currentTransaction || !transactionItems) {
+      toast({
+        title: "Gagal Mencetak",
+        description: "Data transaksi tidak tersedia.",
+        variant: "destructive",
+        duration: 2000,
+      });
+      return;
+    }
+    
+    try {
+      setIsPrinting(true);
+      
+      // Get printer settings from user settings or use defaults
+      const paperWidth = settings?.receipt_width ? `${settings.receipt_width}mm` : '48mm';
+      const printScale = settings?.receipt_scale || 90;
+      
+      // Notify that printing has started
       toast({
         title: "Cetak Struk",
-        description: "Struk sedang dicetak.",
+        description: "Struk sedang disiapkan...",
         duration: 1000,
       });
       
-      // Call printReceipt without using hooks inside
-      printReceipt({
+      // Call printReceipt with device-specific optimizations
+      const printSuccess = printReceipt({
         transaction: currentTransaction,
         transactionItems,
         settings,
+        paperWidth,
+        printScale,
+        bypassPreview: true // Better for Android
       });
+      
+      if (!printSuccess) {
+        toast({
+          title: "Peringatan",
+          description: "Pastikan popup tidak diblokir dan printer siap.",
+          duration: 4000,
+        });
+      }
+    } catch (error) {
+      console.error("Print error:", error);
+      toast({
+        title: "Gagal Mencetak",
+        description: "Terjadi kesalahan saat mencetak struk.",
+        variant: "destructive",
+        duration: 3000,
+      });
+    } finally {
+      setIsPrinting(false);
     }
   };
 
@@ -107,6 +147,7 @@ export const useReceipt = () => {
     isLoadingTransactions,
     filteredTransactions,
     settings,
+    isPrinting,
     viewTransaction,
     confirmDelete,
     handlePasswordCheck,

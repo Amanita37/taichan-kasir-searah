@@ -21,6 +21,7 @@ const Receipt = () => {
     isLoadingTransactions,
     filteredTransactions,
     settings,
+    isPrinting,
     viewTransaction,
     confirmDelete,
     handlePrint,
@@ -71,6 +72,7 @@ const Receipt = () => {
           isLoading={isLoadingItems}
           settings={settings}
           onPrint={handlePrint}
+          isPrinting={isPrinting}
         />
       </DashboardLayout>
     </ErrorBoundary>

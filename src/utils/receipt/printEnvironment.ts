@@ -8,19 +8,24 @@ export function detectPrintEnvironment(): 'android' | 'android-thermal' | 'windo
   
   // Check for Android devices
   if (userAgent.includes('android')) {
-    // If we're in an Android WebView with printer capabilities
+    // Check if we're in an Android WebView with printer capabilities
     if (typeof window.Android !== 'undefined' && window.Android !== null) {
       return 'android-thermal';
     }
     
-    // Check if we're using a browser that's likely connected to a thermal printer
-    // Common browser strings for devices used with ESC/POS printers
+    // Check common thermal printer keywords
     if (
       userAgent.includes('pos') || 
       userAgent.includes('printer') || 
       userAgent.includes('thermal') ||
       userAgent.includes('sunmi') ||
-      userAgent.includes('handheld')
+      userAgent.includes('esc/pos') ||
+      userAgent.includes('escpos') ||
+      userAgent.includes('handheld') ||
+      userAgent.includes('mobile pos') ||
+      (typeof window.navigator.userAgentData !== 'undefined' && 
+        window.navigator.userAgentData.mobile &&
+        (userAgent.includes('chrome') || userAgent.includes('firefox')))
     ) {
       return 'android-thermal';
     }
@@ -82,6 +87,11 @@ declare global {
       printHTML?: (html: string) => void;
       printPage?: () => void;
       print?: () => void;
+    };
+    navigator: Navigator & {
+      userAgentData?: {
+        mobile: boolean;
+      };
     };
   }
 }
