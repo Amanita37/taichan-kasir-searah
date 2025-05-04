@@ -52,10 +52,12 @@ export const printReceipt = ({
         // Try different Android printing methods
         if (typeof window.Android !== 'undefined' && window.Android !== null) {
           if (typeof window.Android.printESCPOS === 'function') {
-            window.Android.printESCPOS(receiptHTML, paperWidth, printScale);
+            // Pass only the HTML and avoid extra parameters if not supported
+            window.Android.printESCPOS(receiptHTML);
             return true;
           } else if (typeof window.Android.printHTML === 'function') {
-            window.Android.printHTML(receiptHTML, paperWidth, printScale);
+            // Pass only the HTML and avoid extra parameters if not supported
+            window.Android.printHTML(receiptHTML);
             return true;
           } else if (typeof window.Android.printPage === 'function') {
             // Create a hidden div to render the receipt

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useTransactions } from "@/hooks/useTransactions";
@@ -91,6 +90,7 @@ export const useReceipt = () => {
       
       // Get printer settings from user settings or use defaults
       const paperWidth = settings?.receipt_width ? `${settings.receipt_width}mm` : '48mm';
+      // Use default value if receipt_scale isn't available in settings
       const printScale = settings?.receipt_scale || 90;
       
       // Notify that printing has started

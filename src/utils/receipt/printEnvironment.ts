@@ -23,9 +23,9 @@ export function detectPrintEnvironment(): 'android' | 'android-thermal' | 'windo
       userAgent.includes('escpos') ||
       userAgent.includes('handheld') ||
       userAgent.includes('mobile pos') ||
-      (typeof window.navigator.userAgentData !== 'undefined' && 
-        window.navigator.userAgentData.mobile &&
-        (userAgent.includes('chrome') || userAgent.includes('firefox')))
+      // Use feature detection for mobile instead of userAgentData
+      (userAgent.includes('chrome') || userAgent.includes('firefox')) && 
+      (/mobile|android/i.test(userAgent))
     ) {
       return 'android-thermal';
     }
@@ -83,15 +83,10 @@ export function hasThermalPrinterSupport(): boolean {
 declare global {
   interface Window {
     Android?: {
-      printESCPOS?: (html: string) => void;
-      printHTML?: (html: string) => void;
+      printESCPOS?: (html: string, paperWidth?: string, scale?: number) => void;
+      printHTML?: (html: string, paperWidth?: string, scale?: number) => void;
       printPage?: () => void;
       print?: () => void;
-    };
-    navigator: Navigator & {
-      userAgentData?: {
-        mobile: boolean;
-      };
     };
   }
 }
