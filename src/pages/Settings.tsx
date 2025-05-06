@@ -419,7 +419,7 @@ const Settings = () => {
           </CardHeader>
           <CardContent className="space-y-2">
             <p><span className="font-medium">Nama Aplikasi:</span> Taichan Searah - Sistem Manajemen Kasir Indonesia</p>
-            <p><span className="font-medium">Versi:</span> 1.0.0</p>
+            <p><span className="font-medium">Versi:</span> 3.0.3</p>
             <p><span className="font-medium">Dikembangkan Oleh:</span> Recreya</p>
             <p className="text-sm text-gray-500 mt-2">© 2025 System developed by Recreya. All rights reserved.</p>
           </CardContent>
