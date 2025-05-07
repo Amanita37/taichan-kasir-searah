@@ -109,8 +109,8 @@ export function generateReceiptHTML({
     <div class="receipt">
       <div class="header">
         <div class="title">${settings?.store_name || "Taichan Searah"}</div>
-        <div class="text-sm">${settings?.store_address || "Jl. Contoh No. 123, Jakarta"}</div>
-        <div class="text-sm">${settings?.store_phone || "(021) 123-4567"}</div>
+        <div class="text-sm">${settings?.store_address || "Jl. Wahid Hasyim Ruko Blok B3, Jembatan 3 - Kota Palu"}</div>
+        <div class="text-sm">${settings?.store_phone || "0822 2324 4494"}</div>
       </div>
       
       <div class="divider"></div>
@@ -172,7 +172,7 @@ export function generateReceiptHTML({
       <div class="divider"></div>
       
       <div class="footer">
-        <p>${settings?.receipt_footer || "Terima kasih atas kunjungan Anda!"}</p>
+        <p>${settings?.receipt_footer || "Terima Kasih Sudah Mampir Ke Searah."}</p>
       </div>
     </div>
   `;
