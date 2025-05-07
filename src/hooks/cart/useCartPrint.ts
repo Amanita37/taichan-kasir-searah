@@ -26,9 +26,9 @@ export const useCartPrint = ({ calculateTotal, cashAmount }: UseCartPrintProps) 
       // Get receipt settings
       const receiptWidth = 48; // Default width
       const storeName = "Taichan Searah"; // Default store name
-      const storeAddress = "Jl. Contoh No. 123, Jakarta"; // Default store address
-      const storePhone = "(021) 123-4567"; // Default phone
-      const receiptFooter = "Terima kasih atas kunjungan Anda!"; // Default footer
+      const storeAddress = "Jl. Wahid Hasyim Ruko Blok B3, Jembatan 3 - Kota Palu"; // Default store address
+      const storePhone = "0822 2324 4494"; // Default phone
+      const receiptFooter = "Terima Kasih Sudah Mampir Ke Searah."; // Default footer
       
       const formatCurrencyPrint = (amount: number): string => {
         return new Intl.NumberFormat("id-ID", {
