@@ -1,4 +1,3 @@
-
 import { useToast } from "@/components/ui/use-toast";
 import { type CartItem } from "@/types/pos";
 
@@ -10,7 +9,7 @@ export interface UseCartPrintProps {
 export const useCartPrint = ({ calculateTotal, cashAmount }: UseCartPrintProps) => {
   const { toast } = useToast();
 
-  const handlePrintReceipt = (transactionItems: CartItem[], customerName = "") => {
+  const handlePrintReceipt = (transactionItems: CartItem[], customerName = "", kasir = "Admin") => {
     try {
       const printWindow = window.open('', '', 'height=600,width=800');
       if (!printWindow) {
@@ -24,155 +23,171 @@ export const useCartPrint = ({ calculateTotal, cashAmount }: UseCartPrintProps) 
       }
       
       // Get receipt settings
-      const receiptWidth = 48; // Default width
-      const storeName = "Taichan Searah"; // Default store name
-      const storeAddress = "Jl. Wahid Hasyim Ruko Blok B3, Jembatan 3 - Kota Palu"; // Default store address
-      const storePhone = "0822 2324 4494"; // Default phone
-      const receiptFooter = "Terima Kasih Sudah Mampir Ke Searah."; // Default footer
+      const receiptWidth = 80; // Ukuran struk 80mm
+      const storeName = "Taichan Searah"; // Nama toko
+      const storeAddress = "Jl. Wahid Hasyim Ruko Blok B3, Jembatan 3 - Kota Palu"; // Alamat toko
+      const storePhone = "0822 2324 4494"; // Nomor telepon
+      const receiptFooter = "Terima Kasih Sudah Mampir Ke Searah."; // Footer struk
       
       const formatCurrencyPrint = (amount: number): string => {
         return new Intl.NumberFormat("id-ID", {
           style: "currency", 
           currency: "IDR",
           minimumFractionDigits: 0,
-        }).format(amount);
+        }).format(amount).replace("Rp", "Rp ");
       };
       
       const total = calculateTotal();
+      
+      // Generate transaction ID
+      const today = new Date();
+      const transactionId = `TRX-${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}-${Math.floor(1000 + Math.random() * 9000)}`;
+      
+      // Format current date & time
+      const formattedDate = today.toLocaleDateString('id-ID', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric'
+      });
+      
+      const formattedTime = today.toLocaleTimeString('id-ID', {
+        hour: '2-digit',
+        minute: '2-digit'
+      });
       
       printWindow.document.write(`
         <html>
           <head>
             <title>Struk Pembayaran</title>
             <style>
-              body {
-                font-family: 'Courier New', monospace;
-                font-size: 12px;
-                padding: 5mm;
+              @page {
+                size: ${receiptWidth}mm auto;
                 margin: 0;
-                width: ${receiptWidth}mm;
-                font-weight: bold;
+              }
+              body {
+                font-family: 'Arial', sans-serif;
+                font-size: 12px;
+                margin: 0 auto; 
+                padding: 5px 10px;
+                width: ${receiptWidth-20}mm;
+                text-align: center; 
               }
               .receipt {
                 width: 100%;
-                max-width: 100%;
+                margin: 0 auto;    /* Tambahkan ini */
+                text-align: center; /* Tambahkan ini */
               }
-              .header {
+              .center {
                 text-align: center;
-                margin-bottom: 10px;
-              }
-              .title {
-                font-size: 14px;
-                font-weight: bold;
               }
               .divider {
                 border-top: 1px dashed #000;
-                margin: 10px 0;
+                margin: 8px 0;
               }
-              .item {
+              .item-row {
                 display: flex;
                 justify-content: space-between;
+                margin-bottom: 2px;
+                text-align: center; /* Tambahkan ini */
+                width: 100%;        /* Tambahkan ini */
               }
-              .item-detail {
-                display: flex;
-                flex-direction: column;
+              .item-details {
+                font-size: 11px;
+                margin-bottom: 4px;
+                color: #333;
               }
-              .total {
+              .bold {
                 font-weight: bold;
-                margin-top: 10px;
               }
               .footer {
                 text-align: center;
+                color: #0000AA;
+                font-weight: bold;
                 margin-top: 10px;
-                font-size: 10px;
+                font-size: 11px;
               }
-              @media print {
-                body {
-                  width: ${receiptWidth}mm;
-                  margin: 0;
-                  padding: 0;
-                  font-weight: bold;
-                }
-                @page {
-                  margin: 0;
-                  size: ${receiptWidth}mm auto;
-                }
+              .header-info {
+                display: flex;
+                justify-content: space-between;
+                margin-bottom: 2px;
+                font-size: 11px;
+                text-align: center; /* Tambahkan ini */
+                width: 100%;        /* Tambahkan ini */
+                margin: 0 auto;     /* Tambahkan ini */
+              }
+              .store-name {
+                font-size: 16px;
+                font-weight: bold;
+              }
+              .store-details {
+                font-size: 11px;
               }
             </style>
           </head>
           <body>
             <div class="receipt">
-              <div class="header">
-                <div class="title">${storeName}</div>
-                <div class="text-sm">${storeAddress}</div>
-                <div class="text-sm">${storePhone}</div>
+              <div class="center">
+                <div class="store-name">${storeName}</div>
+                <div class="store-details">${storeAddress}</div>
+                <div class="store-details">${storePhone}</div>
               </div>
-              
+      
               <div class="divider"></div>
               
-              <div class="text-sm">
-                <div class="flex justify-between">
-                  <span>Tanggal:</span>
-                  <span>${new Date().toLocaleDateString('id-ID', {
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}</span>
-                </div>
-                ${customerName ? `
-                <div class="flex justify-between">
-                  <span>Pelanggan:</span>
-                  <span>${customerName}</span>
-                </div>
-                ` : ''}
+              <div class="header-info">
+                <span>No. Transaksi:</span>
+                <span>${transactionId}</span>
               </div>
               
-              <div class="divider"></div>
-              
-              <div class="items space-y-2">
-                ${transactionItems.map((item) => `
-                  <div class="flex justify-between">
-                    <div>
-                      <div>${item.name}</div>
-                      <div class="text-sm">${formatCurrencyPrint(item.price)} x ${item.quantity}</div>
-                    </div>
-                    <div class="font-medium">
-                      ${formatCurrencyPrint(item.price * item.quantity)}
-                    </div>
-                  </div>
-                `).join('')}
+              <div class="header-info">
+                <span>Tanggal:</span>
+                <span>${formattedDate} kontol ${formattedTime}</span>
               </div>
               
-              <div class="divider"></div>
-              
-              <div class="totals space-y-1">
-                <div class="flex justify-between">
-                  <span>Total:</span>
-                  <span class="font-bold">${formatCurrencyPrint(total)}</span>
-                </div>
-                ${typeof cashAmount === "number" ? `
-                <div class="flex justify-between">
-                  <span>Pembayaran (Cash):</span>
-                  <span>${formatCurrencyPrint(cashAmount)}</span>
-                </div>
-                <div class="flex justify-between">
-                  <span>Kembalian:</span>
-                  <span>${formatCurrencyPrint(Number(cashAmount) - total)}</span>
-                </div>
-                ` : ''}
+              <div class="header-info">
+                <span>Kasir:</span>
+                <span>${kasir}</span>
               </div>
-              
+      
               <div class="divider"></div>
-              
-              <div class="footer text-center text-sm">
-                <p>${receiptFooter}</p>
+      
+              ${transactionItems.map(item => `
+                <div class="item-row">
+                  <span>${item.name}</span>
+                  <span>${formatCurrencyPrint(item.price * item.quantity)}</span>
+                </div>
+                <div class="item-details">
+                  ${formatCurrencyPrint(item.price)} x ${item.quantity}
+                </div>
+              `).join('')}
+      
+              <div class="divider"></div>
+      
+              <div class="item-row bold">
+                <span>Total:</span>
+                <span>${formatCurrencyPrint(total)}</span>
+              </div>
+      
+              ${typeof cashAmount === "number" ? `
+              <div class="item-row">
+                <span>Pembayaran (Cash):</span>
+                <span>${formatCurrencyPrint(cashAmount)}</span>
+              </div>
+              <div class="item-row">
+                <span>Kembalian:</span>
+                <span>${formatCurrencyPrint(cashAmount - total)}</span>
+              </div>
+              ` : ''}
+      
+              <div class="divider"></div>
+      
+              <div class="footer">
+                ${receiptFooter}
               </div>
             </div>
-            
+      
             <script>
-              setTimeout(function() {
+              setTimeout(() => {
                 try {
                   window.print();
                   window.close();
@@ -185,6 +200,7 @@ export const useCartPrint = ({ calculateTotal, cashAmount }: UseCartPrintProps) 
           </body>
         </html>
       `);
+      
       
       printWindow.document.close();
       
